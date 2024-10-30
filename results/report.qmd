@@ -14,11 +14,21 @@ execute:
   cache: true
 ---
 
-Use this as a template. Keep the headers and remove all other text. In all, your report can be quite short. When it is complete, render and then push changes to your team repository.
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = '~/Downloads/module1-group-10/data')
+setwd("~/Downloads/module1-group-10/data")
+biomarker_raw<-read.csv("biomarker-raw.csv")
+```
 
-```{r}
-# load any other packages and read data here
+```{r, include = F, echo=FALSE, message=F, warning = F}
+library(ggplot2)
 library(tidyverse)
+library(infer)
+library(randomForest)
+library(tidymodels)
+library(modelr)
+library(yardstick)
 ```
 
 ## Abstract
@@ -32,8 +42,6 @@ The data was gathered from Hewitson et al. (2021). In total the data set consist
 With our overarching goal to identify a panel of proteins that correlated as a blood biomarker for detecting ASF early, the data required a way to gather serum levels of proteins, thus each participant underwent blood draws utilizing serum separation tubes. A total of 1,317 proteins were identified and 1,125 analyzed after 192 proteins failed quality control. For data preprocessing, protein data was log-transformed, center and scaled, and trimmed. This way the data would be standardized and normalized, trimming allowed us to take note of outliers, values less than -3 or greater than 3 were considered outliers. Our data is now ready for testing to find the top predictive proteins.
 
 ## Summary of published analysis
-
-Summarize the methodology of the paper in 1-3 paragraphs. You need not explain the methods in depth as we did in class; just indicate what methods were used and how they were combined. If possible, include a diagram that depicts the methodological design. (Quarto has support for [GraphViz and Mermaid flowcharts](https://quarto.org/docs/authoring/diagrams.html).) Provide key results: the proteins selected for the classifier and the estimated accuracy.
 
 After collecting the data, the data was then cleaned by removing proteins that did not pass quality control, normalized through a log10 transform and then a z-transformation, and then values greater than 3 and less than -3 were clipped to 3 and -3. The clipping was to prevent outliers from influencing the analysis.
 
@@ -61,12 +69,44 @@ Summarize your findings here. I've included some subheaders in a way that seems 
 
 ### Impact of preprocessing and outliers
 
-Tasks 1-2
+##### Question 1: Impact of log transformation
+In order to investigate the role of the log transformation in the preprocessing of our biomarker data, we will first look at the distribution of raw values for a sample of proteins.
 
-## Task 2:
+First, we randomly sampled 5 proteins from the raw dataset. The proteins sampled were PGRP-S, PACAP-27, TRAIL R4, IGFBP-1, cIAP-2.
+
+The distributions of the protein levels for these 5 proteins are shown below.
+```{r, echo = F}
+set.seed(1045)
+protein_numbers <- sample(3:ncol(biomarker_raw), size = 5, replace=F)
+protein_sample <- biomarker_raw[,protein_numbers]
+colnames(protein_sample) <- protein_sample[1,]
+protein_sample <- protein_sample[-1,]
+protein_sample2 <- protein_sample %>% pivot_longer(cols = everything(), names_to = "protein", values_to = "level")
+protein_sample2$level <- as.numeric(protein_sample2$level)
+protein_sample2 %>% ggplot() + geom_histogram(aes(x = level), bins = 50) + facet_wrap("protein") + xlim(0,8000)
+```
+
+As we can see, the distributions do not seem normal as many of them are skewed to the left and do not seem centered around a mean. We can use qqplots for each of these proteins to support this conclusion. These are shown below:
+
+```{r, echo = F}
+protein_sample2 %>% ggplot(aes(sample = level)) + stat_qq() + stat_qq_line(color = "red") + facet_wrap("protein") + ylim(0, 10000)
+```
+
+As shown above, a lot of the protein level distributions for our sample of 5 proteins do not follow the qqline shown in red for each above qq-plot. To determine if they significantly stray away from a normal distribution, we can use Shapiro-Wilk Tests.
+
+```{r, echo = F}
+protein_sample2 %>% group_by(protein) %>% summarise("pval" = shapiro.test(as.numeric(level))$p.value) %>% mutate("normal" = ifelse(pval < 0.05, FALSE, TRUE))
+```
+
+The tests with p-values smaller than our alpha of 0.05 indicate that we should reject the null hypothesis that the distributions of the levels for these proteins is normal. As shown above, all proteins failed the normality test. 
+
+This is why the log transformation is required. Below, we once again generate distribution histograms and qq-plots for each protein. However, this time we use the log transformed data for these proteins from the biomarker_clean dataset.
+
+
+##### Question 2: Impact of outliers
 
 ```{r, cols.print=5}
-load('../data/biomarker_w_outliers.RData')
+load('~/data/biomarker_w_outliers.RData')
 
 # Grouping the dataset in to ASD and TD and comparing the number of outliers
 outlier_info <- biomarker_w_outliers %>%

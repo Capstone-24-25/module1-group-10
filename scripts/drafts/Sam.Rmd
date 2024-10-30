@@ -29,11 +29,6 @@ This histogram shows that the protein levels are very right-skewed in their raw 
 
 -repeat the analysis but carry out the entire selection procedure on a training partition -- in other words, set aside some testing data at the very beginning and don't use it until you are evaluating accuracy at the very end.
 
--choose a larger number (more than ten) of top predictive proteins using each selection method
-
--use a fuzzy intersection instead of a hard intersection to combine the sets of top predictive proteins across selection methods
-
-
 ```{r}
 library(tidyverse)
 library(infer)
@@ -41,64 +36,59 @@ library(randomForest)
 library(tidymodels)
 library(modelr)
 library(yardstick)
+
+setwd('/Users/sammysu/Downloads')
+trim <- function(x, .at){
+  x[abs(x) > .at] <- sign(x[abs(x) > .at])*.at
+  return(x)
+}
+
 var_names <- read_csv("biomarker-raw.csv", col_names = F, n_max = 2, col_select = -(1:2)) %>%
   t() %>%
   as_tibble() %>%
   rename(name = V1, abbreviation = V2) %>%
   na.omit()
 
-trim <- function(x, .at){
-  x[abs(x) > .at] <- sign(x[abs(x) > .at])*.at
-  return(x)
-}
-
-biomarker_clean <- read_csv("biomarker-raw.csv", 
-         skip = 2,
-         col_select = -2L,
-         col_names = c('group', 'empty', pull(var_names, abbreviation), 'ados'),
-         na = c('-', '')) %>%
+biomarker_data <- read_csv("biomarker-raw.csv", skip = 2, col_select = -2L,
+                           col_names = c('group', 'empty', pull(var_names, abbreviation), 'ados'),
+                           na = c('-', '')) %>%
   filter(!is.na(group)) %>%
-  mutate(across(.cols = -c(group, ados), 
-                ~ trim(scale(log10(.x))[, 1], .at = 3))) %>%
+  mutate(across(.cols = -c(group, ados), ~ trim(scale(log10(.x))[, 1], .at = 3))) %>%
   select(group, ados, everything())
 
 set.seed(101422)
-biomarker_split <- biomarker_clean %>%
-  initial_split(prop = 0.8)
+biomarker_split <- initial_split(biomarker_data, prop = 0.8)
 biomarker_train <- training(biomarker_split)
 biomarker_test <- testing(biomarker_split)
+```
+How are the results affected by this modification: By setting aside testing data at the start, we ensure that the evaluation is more accurate and unbiased, as the model and feature selection are based solely on the training data.
 
-test_fn <- function(.df){
-  t_test(.df, formula = level ~ group, order = c('ASD', 'TD'), alternative = 'two-sided', var.equal = F)
-}
+-choose a larger number (more than ten) of top predictive proteins using each selection method
 
-ttests_out <- biomarker_train %>%
-  select(-ados) %>%
-  pivot_longer(-group, names_to = 'protein', values_to = 'level') %>%
-  nest(data = c(level, group)) %>% 
-  mutate(ttest = map(data, test_fn)) %>%
-  unnest(ttest) %>%
-  arrange(p_value) %>%
-  mutate(m = n(), hm = log(m) + 1/(2*m) - digamma(1), rank = row_number(), p.adj = m*hm*p_value/rank)
+top 20 predictive proteins
 
-#I chose 20 predictive proteins
+```{r}
 proteins_s1 <- ttests_out %>%
   slice_min(p.adj, n = 20) %>%
   pull(protein)
-
-predictors <- biomarker_train %>%
-  select(-c(group, ados))
+predictors <- biomarker_train %>% select(-c(group, ados))
 response <- biomarker_train %>% pull(group) %>% factor()
 
 set.seed(101422)
-rf_out <- randomForest(x = predictors, y = response, ntree = 1000, importance = T)
+rf_out <- randomForest(x = predictors, y = response, ntree = 1000, importance = TRUE)
 
 proteins_s2 <- rf_out$importance %>% 
   as_tibble() %>%
   mutate(protein = rownames(rf_out$importance)) %>%
   slice_max(MeanDecreaseGini, n = 20) %>%
   pull(protein)
+```
 
+How are the results affected by this modification: Increasing the number of proteins used as features can allow the model to capture more variance in the data, which may improve the predictive accuracy.
+
+-use a fuzzy intersection instead of a hard intersection to combine the sets of top predictive proteins across selection methods
+
+```{r}
 protein_union <- union(proteins_s1, proteins_s2)
 ranked_proteins <- tibble(
   protein = protein_union,
@@ -109,36 +99,6 @@ ranked_proteins <- tibble(
   arrange(total_rank) %>%
   slice_min(total_rank, n = 20) %>%
   pull(protein)
-
-biomarker_sstar <- biomarker_clean %>%
-  select(group, any_of(ranked_proteins)) %>%
-  mutate(class = (group == 'ASD')) %>%
-  select(-group)
-
-set.seed(101422)
-biomarker_split <- biomarker_sstar %>%
-  initial_split(prop = 0.8)
-train_data <- training(biomarker_split)
-test_data <- testing(biomarker_split)
-
-fit <- glm(class ~ ., data = train_data, family = 'binomial')
-
-#NOTE!!!: I keep getting this error Error in `metric_set()`:
-#! All inputs to `metric_set()` must be functions. These inputs are not: 3.
-#Backtrace:
- #1. yardstick::metric_set(sensitivity, specificity, accuracy, roc_auc)
-# Define the metrics correctly
-class_metrics <- metric_set(sensitivity, specificity, accuracy, roc_auc)
-
-# Generate predictions
-test_data <- test_data %>%
-  mutate(pred = predict(fit, newdata = test_data, type = "response"))
-
-# Evaluate with class_metrics
-eval_results <- test_data %>%
-  mutate(est = as.factor(pred > 0.5), tr_c = as.factor(class)) %>%
-  class_metrics(truth = tr_c, estimate = est)
-
-# Print evaluation results
-print(eval_results)
 ```
+
+How are the results affected by this modification: This increases flexibility by allowing proteins that are significant in only one method but rank highly to contribute to the model.

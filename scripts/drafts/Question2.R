@@ -27,19 +27,21 @@ biomarker_scaled <- read_csv('data/biomarker-raw.csv',
   # reorder columns
   select(group, ados, everything())
 
+# Biomarker scaled data without group and ados columns
+
+biomarker_outlier <- biomarker_scaled %>%
+  select(-c(group, ados))
+         
+         
 ### Counting the number of outliers for each group
 
 # Number of outliers per person are all data points that equal 3
-above_three_outliers <- rowSums(biomarker_clean == 3)
+above_three_outliers <- rowSums(biomarker_outlier > 3)
 # or negative 3
-below_neg_three_outliers <- rowSums(biomarker_clean == -3)
+below_neg_three_outliers <- rowSums(biomarker_outlier < -3)
 
 # The total number of outliers per person is the sum of the two
 outlierspp <- above_three_outliers + below_neg_three_outliers
-outlierspp
-
-# turning the NAs to zeros
-outlierspp[is.na(outlierspp)] <- 0
 outlierspp
 
 # adding a column to biomarker_clean with number of outliers per person
@@ -49,6 +51,15 @@ biomarker_w_outliers$outliers <- outlierspp
 # Grouping the dataset in to ASD and TD and comparing the number of outliers
 biomarker_w_outliers %>%
   group_by(group) %>%
-  summarize(TotalOutliers = sum(outliers))
+  summarize(TotalOutliers = sum(outliers),
+            OutliersMean = mean(outliers),
+            OutilersSD = sd(outliers),
+            OutliersMax = max(outliers),
+            OutlierNumbers = sum(outliers > 0),
+            NonOutlierNumbers = sum(outliers == 0))
 
-# There are 1007 outliers for people with ASD and zero for TD children
+# There are 1007 outliers for people with ASD and 1372 for TD children
+
+# export as r binary
+save(list = 'biomarker_w_outliers', 
+     file = 'data/biomarker_w_outliers.RData')

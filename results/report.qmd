@@ -1,7 +1,7 @@
 ---
 title: "Biomarkers of ASD"
 subtitle: "If you want a subtitle put it here"
-author: "List names here"
+author: "Anshi Arora, Owen Philliber, James San, Samantha Su"
 date: last-modified
 published-title: "Updated"
 editor: visual
@@ -33,6 +33,27 @@ Write a brief data description, including: how data were obtained; sample charac
 
 Summarize the methodology of the paper in 1-3 paragraphs. You need not explain the methods in depth as we did in class; just indicate what methods were used and how they were combined. If possible, include a diagram that depicts the methodological design. (Quarto has support for [GraphViz and Mermaid flowcharts](https://quarto.org/docs/authoring/diagrams.html).) Provide key results: the proteins selected for the classifier and the estimated accuracy.
 
+After collecting the data, the data was then cleaned by removing proteins that did not pass quality control, normalized through a log10 transform and then a z-transformation, and then values greater than 3 and less than -3 were clipped to 3 and -3. The clipping was to prevent outliers from influencing the analysis.
+
+After the data was cleaned, the paper then used 3 different methods to evaluate the importance of each protein to ASD. The three methods are the correlation coefficients, T-tests, and random forests. The correlation coefficients were found by calculating the correlation between each protein and the ADOS scores. The top 10 proteins with the largest absolute value correlation coefficient were identified. The T test method was used to determine if the mean level of each protein from group of ASD subjects was significantly different from the mean level of the TD subjects. The top 10 proteins from this method were identified through the tests that had the highest significance. Finding the most significant proteins from random forests relies on boosting decision trees to create a large amount of trees. Keeping track of which proteins were used most often can signify how important that protein is to predicting ASD. Thus the 10 proteins with the highest averaged importance index were identified.
+
+After finding the top 10 proteins for each of the methods, any protein that was in the top 10 for all 3 methods was classified as a 'core' protein. There were 5 proteins that the paper found measured in the top 10 for all 3 methods and 13 others that were in either 1 or 2 methods top 10 list. In order to determine if any of the 13 other proteins were important they created logistic regressions with the 5 'core' proteins and added on of the 13 other proteins at a time. The metric the paper used to determined if the protein was important to ASD was if the logistic regression ROC increased by a significant amount. From this, they identified 4 more proteins to be significant in determining ASD. The 9 proteins that the paper suggests are the optimal proteins to identify ASD are the 5 'core' proteins, mitogen-activated protein kinase 14 (MAPK14), immunoglobulin D (IgD), dermatopontin (DERM), ephrin type-B receptor 2 (EPHB2) and soluble urokinase-type plasminogen activator receptor (suPAR) along with the 4 additional proteins, receptor tyrosine kinase-like orphan receptor 1 [ROR1], platelet receptor Gl24 [GI24], eukaryotic translation initiation factor 4H [elF-4H], and arylsulfatase B [ARSB]. The logistic regression with these proteins resulted in an AUC score of 0.860, a sensitivity of 0.833 and a specificity of 0.846.
+
+```{mermaid}
+flowchart TD
+    A[Collect Data] --> |Clean the Data|B{Apply Variable Selection Methods}
+    B --> |One| C[Correlation Coefficients]
+    B-->|Two| D[T Test]
+    B --> |Three| F[Random Forest]
+    C --> G[Take Top 10 Most Important Protiens]
+    D --> G
+    F --> G
+    G --> I[See if Proteins that are in a Top 10 <br> List Improve the ROC curve]
+    G --> H[Proteins That are in All <br> Three Lists are Important]
+    I --> |If They Do|J[Classify Them as Important]
+```
+
+
 ## Findings
 
 Summarize your findings here. I've included some subheaders in a way that seems natural to me; you can structure this section however you like.
@@ -40,6 +61,28 @@ Summarize your findings here. I've included some subheaders in a way that seems 
 ### Impact of preprocessing and outliers
 
 Tasks 1-2
+
+## Task 2:
+
+```{r, cols.print=5}
+load('../data/biomarker_w_outliers.RData')
+
+# Grouping the dataset in to ASD and TD and comparing the number of outliers
+outlier_info <- biomarker_w_outliers %>%
+  group_by(group) %>%
+  summarize(TotalOutliers = sum(outliers),
+            OutliersMean = mean(outliers),
+            OutilersSD = sd(outliers),
+            OutliersMax = max(outliers),
+            OutlierNumbers = sum(outliers > 0),
+            NonOutlierNumbers = sum(outliers == 0))
+
+
+knitr::kable(
+  outlier_info
+)
+```
+As we can see by the data frame, of the 76 subjects with ASD, 75 of them had at least one protein above the threshold. Similarly, the TD group had 77 out of the 78 subjects to have at least one protein above the threshold. In these subjects, there are a total of 1007 proteins that are above the threshold in the ASD group and 1372 total proteins that are above the threshold in the TD group. This means that a ASD subject has on average 13.25 proteins that were trimmed off, when TD subjects had on average around 17.59 proteins that were outliers. Thus, outliers are more frequent in subjects in the TD group than the ASD group.
 
 ### Methodlogical variations
 

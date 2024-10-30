@@ -2,12 +2,12 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.3.433">
+<meta name="generator" content="quarto-1.2.269">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="author" content="List names here">
-<meta name="dcterms.date" content="2023-10-27">
+<meta name="author" content="Anshi Arora, Owen Philliber, James San, Samantha Su">
+<meta name="dcterms.date" content="2024-10-29">
 
 <title>Biomarkers of ASD</title>
 <style>
@@ -19,7 +19,7 @@ div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
 ul.task-list{list-style: none;}
 ul.task-list li input[type="checkbox"] {
   width: 0.8em;
-  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  margin: 0 0.8em 0.2em -1.6em;
   vertical-align: middle;
 }
 </style>
@@ -35,6 +35,9 @@ ul.task-list li input[type="checkbox"] {
 <script src="report_files/libs/bootstrap/bootstrap.min.js"></script>
 <link href="report_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
 <link href="report_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script src="report_files/libs/quarto-diagram/mermaid.min.js"></script>
+<script src="report_files/libs/quarto-diagram/mermaid-init.js"></script>
+<link href="report_files/libs/quarto-diagram/mermaid.css" rel="stylesheet">
 
 
 </head>
@@ -58,14 +61,14 @@ ul.task-list li input[type="checkbox"] {
     <div>
     <div class="quarto-title-meta-heading">Author</div>
     <div class="quarto-title-meta-contents">
-             <p>List names here </p>
+             <p>Anshi Arora, Owen Philliber, James San, Samantha Su </p>
           </div>
   </div>
     
     <div>
     <div class="quarto-title-meta-heading">Updated</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">October 27, 2023</p>
+      <p class="date">October 29, 2024</p>
     </div>
   </div>
   
@@ -76,6 +79,9 @@ ul.task-list li input[type="checkbox"] {
 </header>
 
 <p>Use this as a template. Keep the headers and remove all other text. In all, your report can be quite short. When it is complete, render and then push changes to your team repository.</p>
+<div class="cell" data-hash="report_cache/html/unnamed-chunk-1_3a032c23479ef685915bb272d350a824">
+
+</div>
 <section id="abstract" class="level2">
 <h2 class="anchored" data-anchor-id="abstract">Abstract</h2>
 <p>Write a brief one-paragraph abstract that describes the contents of your write-up.</p>
@@ -87,6 +93,32 @@ ul.task-list li input[type="checkbox"] {
 <section id="summary-of-published-analysis" class="level2">
 <h2 class="anchored" data-anchor-id="summary-of-published-analysis">Summary of published analysis</h2>
 <p>Summarize the methodology of the paper in 1-3 paragraphs. You need not explain the methods in depth as we did in class; just indicate what methods were used and how they were combined. If possible, include a diagram that depicts the methodological design. (Quarto has support for <a href="https://quarto.org/docs/authoring/diagrams.html">GraphViz and Mermaid flowcharts</a>.) Provide key results: the proteins selected for the classifier and the estimated accuracy.</p>
+<p>After collecting the data, the data was then cleaned by removing proteins that did not pass quality control, normalized through a log10 transform and then a z-transformation, and then values greater than 3 and less than -3 were clipped to 3 and -3. The clipping was to prevent outliers from influencing the analysis.</p>
+<p>After the data was cleaned, the paper then used 3 different methods to evaluate the importance of each protein to ASD. The three methods are the correlation coefficients, T-tests, and random forests. The correlation coefficients were found by calculating the correlation between each protein and the ADOS scores. The top 10 proteins with the largest absolute value correlation coefficient were identified. The T test method was used to determine if the mean level of each protein from group of ASD subjects was significantly different from the mean level of the TD subjects. The top 10 proteins from this method were identified through the tests that had the highest significance. Finding the most significant proteins from random forests relies on boosting decision trees to create a large amount of trees. Keeping track of which proteins were used most often can signify how important that protein is to predicting ASD. Thus the 10 proteins with the highest averaged importance index were identified.</p>
+<p>After finding the top 10 proteins for each of the methods, any protein that was in the top 10 for all 3 methods was classified as a ‘core’ protein. There were 5 proteins that the paper found measured in the top 10 for all 3 methods and 13 others that were in either 1 or 2 methods top 10 list. In order to determine if any of the 13 other proteins were important they created logistic regressions with the 5 ‘core’ proteins and added on of the 13 other proteins at a time. The metric the paper used to determined if the protein was important to ASD was if the logistic regression ROC increased by a significant amount. From this, they identified 4 more proteins to be significant in determining ASD. The 9 proteins that the paper suggests are the optimal proteins to identify ASD are the 5 ‘core’ proteins, mitogen-activated protein kinase 14 (MAPK14), immunoglobulin D (IgD), dermatopontin (DERM), ephrin type-B receptor 2 (EPHB2) and soluble urokinase-type plasminogen activator receptor (suPAR) along with the 4 additional proteins, receptor tyrosine kinase-like orphan receptor 1 [ROR1], platelet receptor Gl24 [GI24], eukaryotic translation initiation factor 4H [elF-4H], and arylsulfatase B [ARSB]. The logistic regression with these proteins resulted in an AUC score of 0.860, a sensitivity of 0.833 and a specificity of 0.846.</p>
+<div class="cell">
+<div class="cell-output-display">
+<div>
+<p>
+</p><pre class="mermaid mermaid-js" data-tooltip-selector="#mermaid-tooltip-1">flowchart TD
+    A[Collect Data] --&gt; |Clean the Data|B{Apply Variable Selection Methods}
+    B --&gt; |One| C[Correlation Coefficients]
+    B--&gt;|Two| D[T Test]
+    B --&gt; |Three| F[Random Forest]
+    C --&gt; G[Take Top 10 Most Important Protiens]
+    D --&gt; G
+    F --&gt; G
+    G --&gt; I[See if Proteins that are in a Top 10 &lt;br&gt; List Improve the ROC curve]
+    G --&gt; H[Proteins That are in All &lt;br&gt; Three Lists are Important]
+    I --&gt; |If They Do|J[Classify Them as Important]
+</pre>
+<div id="mermaid-tooltip-1" class="mermaidTooltip">
+
+</div>
+<p></p>
+</div>
+</div>
+</div>
 </section>
 <section id="findings" class="level2">
 <h2 class="anchored" data-anchor-id="findings">Findings</h2>
@@ -95,6 +127,56 @@ ul.task-list li input[type="checkbox"] {
 <h3 class="anchored" data-anchor-id="impact-of-preprocessing-and-outliers">Impact of preprocessing and outliers</h3>
 <p>Tasks 1-2</p>
 </section>
+</section>
+<section id="task-2" class="level2">
+<h2 class="anchored" data-anchor-id="task-2">Task 2:</h2>
+<div class="cell" data-cols.print="5" data-hash="report_cache/html/unnamed-chunk-3_e1e4e5195286e95fac80a77a8dc505ce">
+<div class="cell-output-display">
+<table class="table table-sm table-striped">
+<colgroup>
+<col style="width: 6%">
+<col style="width: 15%">
+<col style="width: 14%">
+<col style="width: 12%">
+<col style="width: 13%">
+<col style="width: 16%">
+<col style="width: 20%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">group</th>
+<th style="text-align: right;">TotalOutliers</th>
+<th style="text-align: right;">OutliersMean</th>
+<th style="text-align: right;">OutilersSD</th>
+<th style="text-align: right;">OutliersMax</th>
+<th style="text-align: right;">OutlierNumbers</th>
+<th style="text-align: right;">NonOutlierNumbers</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">ASD</td>
+<td style="text-align: right;">1007</td>
+<td style="text-align: right;">13.25000</td>
+<td style="text-align: right;">19.81994</td>
+<td style="text-align: right;">126</td>
+<td style="text-align: right;">75</td>
+<td style="text-align: right;">1</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">TD</td>
+<td style="text-align: right;">1372</td>
+<td style="text-align: right;">17.58974</td>
+<td style="text-align: right;">29.24657</td>
+<td style="text-align: right;">157</td>
+<td style="text-align: right;">77</td>
+<td style="text-align: right;">1</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>As we can see by the data frame, of the 76 subjects with ASD, 75 of them had at least one protein above the threshold. Similarly, the TD group had 77 out of the 78 subjects to have at least one protein above the threshold. In these subjects, there are a total of 1007 proteins that are above the threshold in the ASD group and 1372 total proteins that are above the threshold in the TD group. This means that a ASD subject has on average 13.25 proteins that were trimmed off, when TD subjects had on average around 17.59 proteins that were outliers. Thus, outliers are more frequent in subjects in the TD group than the ASD group.</p>
 <section id="methodlogical-variations" class="level3">
 <h3 class="anchored" data-anchor-id="methodlogical-variations">Methodlogical variations</h3>
 <p>Task 3</p>
@@ -134,23 +216,9 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
     icon: icon
   };
   anchorJS.add('.anchored');
-  const isCodeAnnotation = (el) => {
-    for (const clz of el.classList) {
-      if (clz.startsWith('code-annotation-')) {                     
-        return true;
-      }
-    }
-    return false;
-  }
   const clipboard = new window.ClipboardJS('.code-copy-button', {
-    text: function(trigger) {
-      const codeEl = trigger.previousElementSibling.cloneNode(true);
-      for (const childEl of codeEl.children) {
-        if (isCodeAnnotation(childEl)) {
-          childEl.remove();
-        }
-      }
-      return codeEl.innerText;
+    target: function(trigger) {
+      return trigger.previousElementSibling;
     }
   });
   clipboard.on('success', function(e) {
@@ -215,92 +283,6 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
       return note.innerHTML;
     });
   }
-      let selectedAnnoteEl;
-      const selectorForAnnotation = ( cell, annotation) => {
-        let cellAttr = 'data-code-cell="' + cell + '"';
-        let lineAttr = 'data-code-annotation="' +  annotation + '"';
-        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
-        return selector;
-      }
-      const selectCodeLines = (annoteEl) => {
-        const doc = window.document;
-        const targetCell = annoteEl.getAttribute("data-target-cell");
-        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
-        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
-        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
-        const lineIds = lines.map((line) => {
-          return targetCell + "-" + line;
-        })
-        let top = null;
-        let height = null;
-        let parent = null;
-        if (lineIds.length > 0) {
-            //compute the position of the single el (top and bottom and make a div)
-            const el = window.document.getElementById(lineIds[0]);
-            top = el.offsetTop;
-            height = el.offsetHeight;
-            parent = el.parentElement.parentElement;
-          if (lineIds.length > 1) {
-            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
-            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
-            height = bottom - top;
-          }
-          if (top !== null && height !== null && parent !== null) {
-            // cook up a div (if necessary) and position it 
-            let div = window.document.getElementById("code-annotation-line-highlight");
-            if (div === null) {
-              div = window.document.createElement("div");
-              div.setAttribute("id", "code-annotation-line-highlight");
-              div.style.position = 'absolute';
-              parent.appendChild(div);
-            }
-            div.style.top = top - 2 + "px";
-            div.style.height = height + 4 + "px";
-            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
-            if (gutterDiv === null) {
-              gutterDiv = window.document.createElement("div");
-              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
-              gutterDiv.style.position = 'absolute';
-              const codeCell = window.document.getElementById(targetCell);
-              const gutter = codeCell.querySelector('.code-annotation-gutter');
-              gutter.appendChild(gutterDiv);
-            }
-            gutterDiv.style.top = top - 2 + "px";
-            gutterDiv.style.height = height + 4 + "px";
-          }
-          selectedAnnoteEl = annoteEl;
-        }
-      };
-      const unselectCodeLines = () => {
-        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
-        elementsIds.forEach((elId) => {
-          const div = window.document.getElementById(elId);
-          if (div) {
-            div.remove();
-          }
-        });
-        selectedAnnoteEl = undefined;
-      };
-      // Attach click handler to the DT
-      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
-      for (const annoteDlNode of annoteDls) {
-        annoteDlNode.addEventListener('click', (event) => {
-          const clickedEl = event.target;
-          if (clickedEl !== selectedAnnoteEl) {
-            unselectCodeLines();
-            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
-            if (activeEl) {
-              activeEl.classList.remove('code-annotation-active');
-            }
-            selectCodeLines(clickedEl);
-            clickedEl.classList.add('code-annotation-active');
-          } else {
-            // Unselect the line
-            unselectCodeLines();
-            clickedEl.classList.remove('code-annotation-active');
-          }
-        });
-      }
   const findCites = (el) => {
     const parentEl = el.parentElement;
     if (parentEl) {

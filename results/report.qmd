@@ -1,6 +1,6 @@
 ---
 title: "Biomarkers of ASD"
-subtitle: "If you want a subtitle put it here"
+subtitle: "Group 10"
 author: "Anshi Arora, Owen Philliber, James San, Samantha Su"
 date: last-modified
 published-title: "Updated"
@@ -27,7 +27,9 @@ Write a brief one-paragraph abstract that describes the contents of your write-u
 
 ## Dataset
 
-Write a brief data description, including: how data were obtained; sample characteristics; variables measured; and data preprocessing. This can be largely based on the source paper and should not exceed 1-2 paragraphs.
+The data was gathered from Hewitson et al. (2021). In total the data set consists of 154 male participants of whom 76 have ASD, mean age of 5.6 years, and the other 78 are typically developing boys, mean age of 5.7 years, with ages ranging from 18 months to 8 years of age. In terms of demographics, both ASD and TD groups had majority White/Caucasian with 45.2% and 51.9% respectively while Asian or Pacific Islander made up the minority with 2.6% and 3.9%. Moreover, a majority of boys reported no comorbidities, 52.8% and 75.3%, however seasonal allergies followed with 41.7% of ASD boys and 22.4% of TD boys. For medications attribute "none" was also the majority having 92% of ASD boys and 97.4% of TD boys falling into this attribute, other medications were too few in representation. On top of this, ASD boys specifically went through ADOS testing which measures ASD symptom severity between 6 and 23, 23 being the most severe, and TD boys went through ABAS-II testing to ensure there were no developmental concerns.
+
+With our overarching goal to identify a panel of proteins that correlated as a blood biomarker for detecting ASF early, the data required a way to gather serum levels of proteins, thus each participant underwent blood draws utilizing serum separation tubes. A total of 1,317 proteins were identified and 1,125 analyzed after 192 proteins failed quality control. For data preprocessing, protein data was log-transformed, center and scaled, and trimmed. This way the data would be standardized and normalized, trimming allowed us to take note of outliers, values less than -3 or greater than 3 were considered outliers. Our data is now ready for testing to find the top predictive proteins.
 
 ## Summary of published analysis
 
@@ -37,7 +39,7 @@ After collecting the data, the data was then cleaned by removing proteins that d
 
 After the data was cleaned, the paper then used 3 different methods to evaluate the importance of each protein to ASD. The three methods are the correlation coefficients, T-tests, and random forests. The correlation coefficients were found by calculating the correlation between each protein and the ADOS scores. The top 10 proteins with the largest absolute value correlation coefficient were identified. The T test method was used to determine if the mean level of each protein from group of ASD subjects was significantly different from the mean level of the TD subjects. The top 10 proteins from this method were identified through the tests that had the highest significance. Finding the most significant proteins from random forests relies on boosting decision trees to create a large amount of trees. Keeping track of which proteins were used most often can signify how important that protein is to predicting ASD. Thus the 10 proteins with the highest averaged importance index were identified.
 
-After finding the top 10 proteins for each of the methods, any protein that was in the top 10 for all 3 methods was classified as a 'core' protein. There were 5 proteins that the paper found measured in the top 10 for all 3 methods and 13 others that were in either 1 or 2 methods top 10 list. In order to determine if any of the 13 other proteins were important they created logistic regressions with the 5 'core' proteins and added on of the 13 other proteins at a time. The metric the paper used to determined if the protein was important to ASD was if the logistic regression ROC increased by a significant amount. From this, they identified 4 more proteins to be significant in determining ASD. The 9 proteins that the paper suggests are the optimal proteins to identify ASD are the 5 'core' proteins, mitogen-activated protein kinase 14 (MAPK14), immunoglobulin D (IgD), dermatopontin (DERM), ephrin type-B receptor 2 (EPHB2) and soluble urokinase-type plasminogen activator receptor (suPAR) along with the 4 additional proteins, receptor tyrosine kinase-like orphan receptor 1 [ROR1], platelet receptor Gl24 [GI24], eukaryotic translation initiation factor 4H [elF-4H], and arylsulfatase B [ARSB]. The logistic regression with these proteins resulted in an AUC score of 0.860, a sensitivity of 0.833 and a specificity of 0.846.
+After finding the top 10 proteins for each of the methods, any protein that was in the top 10 for all 3 methods was classified as a 'core' protein. There were 5 proteins that the paper found measured in the top 10 for all 3 methods and 13 others that were in either 1 or 2 methods top 10 list. In order to determine if any of the 13 other proteins were important they created logistic regressions with the 5 'core' proteins and added on of the 13 other proteins at a time. The metric the paper used to determined if the protein was important to ASD was if the logistic regression ROC increased by a significant amount. From this, they identified 4 more proteins to be significant in determining ASD. The 9 proteins that the paper suggests are the optimal proteins to identify ASD are the 5 'core' proteins, mitogen-activated protein kinase 14 (MAPK14), immunoglobulin D (IgD), dermatopontin (DERM), ephrin type-B receptor 2 (EPHB2) and soluble urokinase-type plasminogen activator receptor (suPAR) along with the 4 additional proteins, receptor tyrosine kinase-like orphan receptor 1 \[ROR1\], platelet receptor Gl24 \[GI24\], eukaryotic translation initiation factor 4H \[elF-4H\], and arylsulfatase B \[ARSB\]. The logistic regression with these proteins resulted in an AUC score of 0.860, a sensitivity of 0.833 and a specificity of 0.846.
 
 ```{mermaid}
 flowchart TD
@@ -52,7 +54,6 @@ flowchart TD
     G --> H[Proteins That are in All <br> Three Lists are Important]
     I --> |If They Do|J[Classify Them as Important]
 ```
-
 
 ## Findings
 
@@ -82,6 +83,7 @@ knitr::kable(
   outlier_info
 )
 ```
+
 As we can see by the data frame, of the 76 subjects with ASD, 75 of them had at least one protein above the threshold. Similarly, the TD group had 77 out of the 78 subjects to have at least one protein above the threshold. In these subjects, there are a total of 1007 proteins that are above the threshold in the ASD group and 1372 total proteins that are above the threshold in the TD group. This means that a ASD subject has on average 13.25 proteins that were trimmed off, when TD subjects had on average around 17.59 proteins that were outliers. Thus, outliers are more frequent in subjects in the TD group than the ASD group.
 
 ### Methodlogical variations

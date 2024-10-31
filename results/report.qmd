@@ -16,8 +16,10 @@ execute:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-knitr::opts_knit$set(root.dir = '~/Downloads/module1-group-10/data')
-setwd("~/Downloads/module1-group-10/data")
+# knitr::opts_knit$set(root.dir = '~/Downloads/module1-group-10/data')
+# setwd("~/Downloads/module1-group-10/data")
+knitr::opts_knit$set(root.dir = '../data')
+setwd("../data")
 biomarker_raw<-read.csv("biomarker-raw.csv")
 ```
 
@@ -65,16 +67,16 @@ flowchart TD
 
 ## Findings
 
-Summarize your findings here. I've included some subheaders in a way that seems natural to me; you can structure this section however you like.
-
 ### Impact of preprocessing and outliers
 
 ##### Question 1: Impact of log transformation
+
 In order to investigate the role of the log transformation in the preprocessing of our biomarker data, we will first look at the distribution of raw values for a sample of proteins.
 
 First, we randomly sampled 5 proteins from the raw dataset. The proteins sampled were PGRP-S, PACAP-27, TRAIL R4, IGFBP-1, cIAP-2.
 
 The distributions of the protein levels for these 5 proteins are shown below.
+
 ```{r, echo = F}
 set.seed(1045)
 protein_numbers <- sample(3:ncol(biomarker_raw), size = 5, replace=F)
@@ -98,15 +100,14 @@ As shown above, a lot of the protein level distributions for our sample of 5 pro
 protein_sample2 %>% group_by(protein) %>% summarise("pval" = shapiro.test(as.numeric(level))$p.value) %>% mutate("normal" = ifelse(pval < 0.05, FALSE, TRUE))
 ```
 
-The tests with p-values smaller than our alpha of 0.05 indicate that we should reject the null hypothesis that the distributions of the levels for these proteins is normal. As shown above, all proteins failed the normality test. 
+The tests with p-values smaller than our alpha of 0.05 indicate that we should reject the null hypothesis that the distributions of the levels for these proteins is normal. As shown above, all proteins failed the normality test.
 
 This is why the log transformation is required. Below, we once again generate distribution histograms and qq-plots for each protein. However, this time we use the log transformed data for these proteins from the biomarker_clean dataset.
-
 
 ##### Question 2: Impact of outliers
 
 ```{r, cols.print=5}
-load('~/data/biomarker_w_outliers.RData')
+load('../data/biomarker_w_outliers.RData')
 
 # Grouping the dataset in to ASD and TD and comparing the number of outliers
 outlier_info <- biomarker_w_outliers %>%
@@ -128,8 +129,116 @@ As we can see by the data frame, of the 76 subjects with ASD, 75 of them had at 
 
 ### Methodlogical variations
 
-Task 3
+```{r, echo = FALSE}
+set.seed(101422)
+load('../data/biomarker-clean.RData')
+
+biomarker_split <- biomarker_clean %>%
+  initial_split(prop = 0.8)
+biomarker_train <- training(biomarker_split)
+biomarker_test <- testing(biomarker_split)
+
+test_fn <- function(.df){
+  t_test(.df, formula = level ~ group, order = c('ASD', 'TD'), alternative = 'two-sided', var.equal = F)
+}
+
+ttests_out <- biomarker_train %>%
+  select(-ados) %>%
+  pivot_longer(-group, names_to = 'protein', values_to = 'level') %>%
+  nest(data = c(level, group)) %>% 
+  mutate(ttest = map(data, test_fn)) %>%
+  unnest(ttest) %>%
+  arrange(p_value) %>%
+  mutate(m = n(), hm = log(m) + 1/(2*m) - digamma(1), rank = row_number(), p.adj = m*hm*p_value/rank)
+
+proteins_s1 <- ttests_out %>%
+  slice_min(p.adj, n = 20) %>%
+  pull(protein)
+
+predictors <- biomarker_train %>%
+  select(-c(group, ados))
+response <- biomarker_train %>% pull(group) %>% factor()
+
+rf_out <- randomForest(x = predictors, y = response, ntree = 1000, importance = T)
+
+proteins_s2 <- rf_out$importance %>% 
+  as_tibble() %>%
+  mutate(protein = rownames(rf_out$importance)) %>%
+  slice_max(MeanDecreaseGini, n = 20) %>%
+  pull(protein)
+protein_union <- union(proteins_s1, proteins_s2)
+ranked_proteins <- tibble(
+  protein = protein_union,
+  rank_s1 = match(protein_union, proteins_s1, nomatch = 21),
+  rank_s2 = match(protein_union, proteins_s2, nomatch = 21)
+) %>%
+  mutate(total_rank = rowMeans(across(starts_with("rank")), na.rm = TRUE)) %>%
+  arrange(total_rank) %>%
+  slice_min(total_rank, n = 20) %>%
+  pull(protein)
+```
 
 ### Improved classifier
 
-Task 4
+```{r, echo = FALSE, results = 'hide'}
+
+
+biomarker_sstar <- biomarker_clean %>%
+  select(group, any_of(ranked_proteins)) %>%
+  mutate(class = (group == 'ASD')) %>%
+  select(-group)
+
+# Define the full model with all predictors
+initial_model <- glm(class ~ 1, data = biomarker_sstar, family = binomial)
+full_model <- glm(class ~ ., data = biomarker_sstar, family = binomial)
+
+forward_model <- stats::step(initial_model, direction='forward', scope = list(lower = initial_model, upper = full_model))
+
+backward_model <- glm(class ~ ., data = biomarker_sstar, family = binomial) %>% stats::step(direction = "backward")
+
+#Stepwise regression
+both_model <- glm(class ~ ., data = biomarker_sstar, family = binomial)%>% stats::step(direction = "both", scope = list(lower = initial_model, upper = full_model))
+```
+
+To improve a classifier, a model can be either simplified while still achieving the a similar accuracy or can be made more complicated to achieve a better accuracy. This is because the Occam's razor principle suggests that when choosing between models, the simpler model is better assuming that it achieves the same accuracy. Thus we decided to simplify our model from task 3. Our approach to simplifying the model was through stepwise regression. Stepwise regression is adding or removing parameters for a logistic regression based on a criterion until adding any of the remaining parameter does not significantly improve our glm or removing any parameter worsens our model. The criterion we used was AIC which is calculated using the number of independent variables and the maximum likelihood estimate of the model to determine if the increase in variables produces a better model. We deployed forwards selection, which only adds variables, backwards selection, which only removes variables, and both, which can add and remove variables. We identified our "best" proteins as the proteins that were in 2 or 3 of the stepwise regressions. The 6 proteins that achieved this are, DERM, IgD, PTN, RELT, CSK and 14-3-3 protein theta.
+
+#### The Summary of the Forwards Model
+
+```{r}
+summary(forward_model)
+```
+
+#### The Summary fo the Backwards Model
+
+```{r}
+summary(backward_model)
+```
+
+#### The Summary of the Forwards and Backwards Model
+
+```{r}
+summary(both_model)
+```
+
+#### Plots of the Residuals for each Model
+
+``` {r{}}
+par(mfrow = c(2, 2))
+plot(forward_model$residuals, main = "Forward Residuals", ylab = "Residuals")
+plot(backward_model$residuals, main = "Backward Residuals", ylab = "Residuals")
+plot(both_model$residuals, main = "Both-Direction Residuals", ylab = "Residuals")
+```
+
+Comparing the logistic regression with all 20 core proteins and our simpler model, we find that our model has a residual deviance of 130.74 when the full model only has a residual deviance of 119.37. Similarly, the AIC for the reduced model is 144.74, when the full model obtains an AIC of 161.37. Since the model is able to produce similar AIC and deviances and is a simpler model, we suggest that our pannel of 6 proteins is superior to the 20 proteins we found in task 3.
+
+```{r}
+# Comparing to the list of 20 proteins to the reduced 6:
+
+full_model <- glm(class ~ ., data = biomarker_sstar, family = binomial)
+reduced_model <- glm(class ~ DERM + IgD + PTN + RELT + CSK + `14-3-3 protein theta`, data = biomarker_sstar, family = binomial)
+
+# summary(full_model)
+# summary(reduced_model)
+
+anova(full_model, reduced_model)
+```

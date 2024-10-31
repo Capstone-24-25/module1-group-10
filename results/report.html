@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Anshi Arora, Owen Philliber, James San, Samantha Su">
-<meta name="dcterms.date" content="2024-10-29">
+<meta name="dcterms.date" content="2024-10-30">
 
 <title>Biomarkers of ASD</title>
 <style>
@@ -51,7 +51,7 @@ ul.task-list li input[type="checkbox"] {
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
 <h1 class="title">Biomarkers of ASD</h1>
-<p class="subtitle lead">If you want a subtitle put it here</p>
+<p class="subtitle lead">Group 10</p>
 </div>
 
 
@@ -68,7 +68,7 @@ ul.task-list li input[type="checkbox"] {
     <div>
     <div class="quarto-title-meta-heading">Updated</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">October 29, 2024</p>
+      <p class="date">October 30, 2024</p>
     </div>
   </div>
   
@@ -78,21 +78,17 @@ ul.task-list li input[type="checkbox"] {
 
 </header>
 
-<p>Use this as a template. Keep the headers and remove all other text. In all, your report can be quite short. When it is complete, render and then push changes to your team repository.</p>
-<div class="cell" data-hash="report_cache/html/unnamed-chunk-1_3a032c23479ef685915bb272d350a824">
-
-</div>
 <section id="abstract" class="level2">
 <h2 class="anchored" data-anchor-id="abstract">Abstract</h2>
 <p>Write a brief one-paragraph abstract that describes the contents of your write-up.</p>
 </section>
 <section id="dataset" class="level2">
 <h2 class="anchored" data-anchor-id="dataset">Dataset</h2>
-<p>Write a brief data description, including: how data were obtained; sample characteristics; variables measured; and data preprocessing. This can be largely based on the source paper and should not exceed 1-2 paragraphs.</p>
+<p>The data was gathered from Hewitson et al.&nbsp;(2021). In total the data set consists of 154 male participants of whom 76 have ASD, mean age of 5.6 years, and the other 78 are typically developing boys, mean age of 5.7 years, with ages ranging from 18 months to 8 years of age. In terms of demographics, both ASD and TD groups had majority White/Caucasian with 45.2% and 51.9% respectively while Asian or Pacific Islander made up the minority with 2.6% and 3.9%. Moreover, a majority of boys reported no comorbidities, 52.8% and 75.3%, however seasonal allergies followed with 41.7% of ASD boys and 22.4% of TD boys. For medications attribute “none” was also the majority having 92% of ASD boys and 97.4% of TD boys falling into this attribute, other medications were too few in representation. On top of this, ASD boys specifically went through ADOS testing which measures ASD symptom severity between 6 and 23, 23 being the most severe, and TD boys went through ABAS-II testing to ensure there were no developmental concerns.</p>
+<p>With our overarching goal to identify a panel of proteins that correlated as a blood biomarker for detecting ASF early, the data required a way to gather serum levels of proteins, thus each participant underwent blood draws utilizing serum separation tubes. A total of 1,317 proteins were identified and 1,125 analyzed after 192 proteins failed quality control. For data preprocessing, protein data was log-transformed, center and scaled, and trimmed. This way the data would be standardized and normalized, trimming allowed us to take note of outliers, values less than -3 or greater than 3 were considered outliers. Our data is now ready for testing to find the top predictive proteins.</p>
 </section>
 <section id="summary-of-published-analysis" class="level2">
 <h2 class="anchored" data-anchor-id="summary-of-published-analysis">Summary of published analysis</h2>
-<p>Summarize the methodology of the paper in 1-3 paragraphs. You need not explain the methods in depth as we did in class; just indicate what methods were used and how they were combined. If possible, include a diagram that depicts the methodological design. (Quarto has support for <a href="https://quarto.org/docs/authoring/diagrams.html">GraphViz and Mermaid flowcharts</a>.) Provide key results: the proteins selected for the classifier and the estimated accuracy.</p>
 <p>After collecting the data, the data was then cleaned by removing proteins that did not pass quality control, normalized through a log10 transform and then a z-transformation, and then values greater than 3 and less than -3 were clipped to 3 and -3. The clipping was to prevent outliers from influencing the analysis.</p>
 <p>After the data was cleaned, the paper then used 3 different methods to evaluate the importance of each protein to ASD. The three methods are the correlation coefficients, T-tests, and random forests. The correlation coefficients were found by calculating the correlation between each protein and the ADOS scores. The top 10 proteins with the largest absolute value correlation coefficient were identified. The T test method was used to determine if the mean level of each protein from group of ASD subjects was significantly different from the mean level of the TD subjects. The top 10 proteins from this method were identified through the tests that had the highest significance. Finding the most significant proteins from random forests relies on boosting decision trees to create a large amount of trees. Keeping track of which proteins were used most often can signify how important that protein is to predicting ASD. Thus the 10 proteins with the highest averaged importance index were identified.</p>
 <p>After finding the top 10 proteins for each of the methods, any protein that was in the top 10 for all 3 methods was classified as a ‘core’ protein. There were 5 proteins that the paper found measured in the top 10 for all 3 methods and 13 others that were in either 1 or 2 methods top 10 list. In order to determine if any of the 13 other proteins were important they created logistic regressions with the 5 ‘core’ proteins and added on of the 13 other proteins at a time. The metric the paper used to determined if the protein was important to ASD was if the logistic regression ROC increased by a significant amount. From this, they identified 4 more proteins to be significant in determining ASD. The 9 proteins that the paper suggests are the optimal proteins to identify ASD are the 5 ‘core’ proteins, mitogen-activated protein kinase 14 (MAPK14), immunoglobulin D (IgD), dermatopontin (DERM), ephrin type-B receptor 2 (EPHB2) and soluble urokinase-type plasminogen activator receptor (suPAR) along with the 4 additional proteins, receptor tyrosine kinase-like orphan receptor 1 [ROR1], platelet receptor Gl24 [GI24], eukaryotic translation initiation factor 4H [elF-4H], and arylsulfatase B [ARSB]. The logistic regression with these proteins resulted in an AUC score of 0.860, a sensitivity of 0.833 and a specificity of 0.846.</p>
@@ -125,12 +121,41 @@ ul.task-list li input[type="checkbox"] {
 <p>Summarize your findings here. I’ve included some subheaders in a way that seems natural to me; you can structure this section however you like.</p>
 <section id="impact-of-preprocessing-and-outliers" class="level3">
 <h3 class="anchored" data-anchor-id="impact-of-preprocessing-and-outliers">Impact of preprocessing and outliers</h3>
-<p>Tasks 1-2</p>
+<section id="question-1-impact-of-log-transformation" class="level5">
+<h5 class="anchored" data-anchor-id="question-1-impact-of-log-transformation">Question 1: Impact of log transformation</h5>
+<p>In order to investigate the role of the log transformation in the preprocessing of our biomarker data, we will first look at the distribution of raw values for a sample of proteins.</p>
+<p>First, we randomly sampled 5 proteins from the raw dataset. The proteins sampled were PGRP-S, PACAP-27, TRAIL R4, IGFBP-1, cIAP-2.</p>
+<p>The distributions of the protein levels for these 5 proteins are shown below.</p>
+<div class="cell" data-hash="report_cache/html/unnamed-chunk-3_0d05e9bfd805fcbcbe0ef7e7eeff9011">
+<div class="cell-output-display">
+<p><img src="report_files/figure-html/unnamed-chunk-3-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p>As we can see, the distributions do not seem normal as many of them are skewed to the left and do not seem centered around a mean. We can use qqplots for each of these proteins to support this conclusion. These are shown below:</p>
+<div class="cell" data-hash="report_cache/html/unnamed-chunk-4_fdea39070575b6a8047f8b2422646530">
+<div class="cell-output-display">
+<p><img src="report_files/figure-html/unnamed-chunk-4-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p>As shown above, a lot of the protein level distributions for our sample of 5 proteins do not follow the qqline shown in red for each above qq-plot. To determine if they significantly stray away from a normal distribution, we can use Shapiro-Wilk Tests.</p>
+<div class="cell" data-hash="report_cache/html/unnamed-chunk-5_4b57d505cedd4f202e977955228759fa">
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 5 × 3
+  protein      pval normal
+  &lt;chr&gt;       &lt;dbl&gt; &lt;lgl&gt; 
+1 IGFBP-1  2.61e- 2 FALSE 
+2 PACAP-27 1.04e-24 FALSE 
+3 PGRP-S   1.68e-23 FALSE 
+4 TRAIL R4 9.77e-21 FALSE 
+5 cIAP-2   1.06e-22 FALSE </code></pre>
+</div>
+</div>
+<p>The tests with p-values smaller than our alpha of 0.05 indicate that we should reject the null hypothesis that the distributions of the levels for these proteins is normal. As shown above, all proteins failed the normality test.</p>
+<p>This is why the log transformation is required. Below, we once again generate distribution histograms and qq-plots for each protein. However, this time we use the log transformed data for these proteins from the biomarker_clean dataset.</p>
 </section>
-</section>
-<section id="task-2" class="level2">
-<h2 class="anchored" data-anchor-id="task-2">Task 2:</h2>
-<div class="cell" data-cols.print="5" data-hash="report_cache/html/unnamed-chunk-3_e1e4e5195286e95fac80a77a8dc505ce">
+<section id="question-2-impact-of-outliers" class="level5">
+<h5 class="anchored" data-anchor-id="question-2-impact-of-outliers">Question 2: Impact of outliers</h5>
+<div class="cell" data-cols.print="5" data-hash="report_cache/html/unnamed-chunk-6_61b78490f87e5d778cbadb132185bd30">
 <div class="cell-output-display">
 <table class="table table-sm table-striped">
 <colgroup>
@@ -177,13 +202,138 @@ ul.task-list li input[type="checkbox"] {
 </div>
 </div>
 <p>As we can see by the data frame, of the 76 subjects with ASD, 75 of them had at least one protein above the threshold. Similarly, the TD group had 77 out of the 78 subjects to have at least one protein above the threshold. In these subjects, there are a total of 1007 proteins that are above the threshold in the ASD group and 1372 total proteins that are above the threshold in the TD group. This means that a ASD subject has on average 13.25 proteins that were trimmed off, when TD subjects had on average around 17.59 proteins that were outliers. Thus, outliers are more frequent in subjects in the TD group than the ASD group.</p>
+</section>
+</section>
 <section id="methodlogical-variations" class="level3">
 <h3 class="anchored" data-anchor-id="methodlogical-variations">Methodlogical variations</h3>
-<p>Task 3</p>
+<div class="cell" data-hash="report_cache/html/unnamed-chunk-7_426441bfeed29f6afff31a5da0234417">
+
+</div>
 </section>
 <section id="improved-classifier" class="level3">
 <h3 class="anchored" data-anchor-id="improved-classifier">Improved classifier</h3>
-<p>Task 4</p>
+<div class="cell" data-hash="report_cache/html/unnamed-chunk-8_a36c89947fc2341db34175a5fc058a99">
+
+</div>
+<p>To improve a classifier, a model can be either simplified while still achieving the a similar accuracy or can be made more complicated to achieve a better accuracy. This is because the Occam’s razor principle suggests that when choosing between models, the simpler model is better assuming that it achieves the same accuracy. Thus we decided to simplify our model from task 3. Our approach to simplifying the model was through stepwise regression. Stepwise regression is adding or removing parameters for a logistic regression based on a criterion until adding any of the remaining parameter does not significantly improve our glm or removing any parameter worsens our model. The criterion we used was AIC which is calculated using the number of independent variables and the maximum likelihood estimate of the model to determine if the increase in variables produces a better model. We deployed forwards selection, which only adds variables, backwards selection, which only removes variables, and both, which can add and remove variables. We identified our “best” proteins as the proteins that were in 2 or 3 of the stepwise regressions. The 6 proteins that achieved this are, DERM, IgD, PTN, RELT, CSK and 14-3-3 protein theta.</p>
+<section id="the-summary-of-the-forwards-model" class="level4">
+<h4 class="anchored" data-anchor-id="the-summary-of-the-forwards-model">The Summary of the Forwards Model</h4>
+<div class="cell" data-hash="report_cache/html/unnamed-chunk-9_73cb69cfb583bd3be5245edb5b87c0d6">
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Call:
+glm(formula = class ~ DERM + `M2-PK` + IgD + PTN + `bFGF-R` + 
+    Calcineurin + `14-3-3 protein theta` + CSK, family = binomial, 
+    data = biomarker_sstar)
+
+Coefficients:
+                       Estimate Std. Error z value Pr(&gt;|z|)    
+(Intercept)            -0.02013    0.22472  -0.090 0.928627    
+DERM                   -0.61142    0.32684  -1.871 0.061387 .  
+`M2-PK`                -0.26837    0.34407  -0.780 0.435392    
+IgD                    -0.89313    0.25104  -3.558 0.000374 ***
+PTN                    -0.76072    0.31534  -2.412 0.015848 *  
+`bFGF-R`               -0.28712    0.21430  -1.340 0.180312    
+Calcineurin            -0.41897    0.26430  -1.585 0.112911    
+`14-3-3 protein theta`  0.69461    0.28274   2.457 0.014023 *  
+CSK                    -0.83362    0.37174  -2.242 0.024930 *  
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+(Dispersion parameter for binomial family taken to be 1)
+
+    Null deviance: 213.46  on 153  degrees of freedom
+Residual deviance: 126.43  on 145  degrees of freedom
+AIC: 144.43
+
+Number of Fisher Scoring iterations: 5</code></pre>
+</div>
+</div>
+</section>
+<section id="the-summary-fo-the-backwards-model" class="level4">
+<h4 class="anchored" data-anchor-id="the-summary-fo-the-backwards-model">The Summary fo the Backwards Model</h4>
+<div class="cell" data-hash="report_cache/html/unnamed-chunk-10_9559ba48eb89fa778076a3a8eb65d4d9">
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Call:
+glm(formula = class ~ DERM + IgD + PTN + `14-3-3 protein theta` + 
+    CSK + Calcineurin, family = binomial, data = biomarker_sstar)
+
+Coefficients:
+                        Estimate Std. Error z value Pr(&gt;|z|)    
+(Intercept)            -0.003534   0.222466  -0.016 0.987327    
+DERM                   -0.683348   0.323407  -2.113 0.034604 *  
+IgD                    -0.886079   0.245433  -3.610 0.000306 ***
+PTN                    -0.693500   0.308365  -2.249 0.024515 *  
+`14-3-3 protein theta`  0.792836   0.255657   3.101 0.001928 ** 
+CSK                    -0.996541   0.280754  -3.550 0.000386 ***
+Calcineurin            -0.497453   0.257874  -1.929 0.053725 .  
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+(Dispersion parameter for binomial family taken to be 1)
+
+    Null deviance: 213.46  on 153  degrees of freedom
+Residual deviance: 128.40  on 147  degrees of freedom
+AIC: 142.4
+
+Number of Fisher Scoring iterations: 5</code></pre>
+</div>
+</div>
+</section>
+<section id="the-summary-of-the-forwards-and-backwards-model" class="level4">
+<h4 class="anchored" data-anchor-id="the-summary-of-the-forwards-and-backwards-model">The Summary of the Forwards and Backwards Model</h4>
+<div class="cell" data-hash="report_cache/html/unnamed-chunk-11_2c81e77defedd4892104ec8d0af9fbdf">
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Call:
+glm(formula = class ~ DERM + IgD + PTN + `14-3-3 protein theta` + 
+    CSK + Calcineurin, family = binomial, data = biomarker_sstar)
+
+Coefficients:
+                        Estimate Std. Error z value Pr(&gt;|z|)    
+(Intercept)            -0.003534   0.222466  -0.016 0.987327    
+DERM                   -0.683348   0.323407  -2.113 0.034604 *  
+IgD                    -0.886079   0.245433  -3.610 0.000306 ***
+PTN                    -0.693500   0.308365  -2.249 0.024515 *  
+`14-3-3 protein theta`  0.792836   0.255657   3.101 0.001928 ** 
+CSK                    -0.996541   0.280754  -3.550 0.000386 ***
+Calcineurin            -0.497453   0.257874  -1.929 0.053725 .  
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+(Dispersion parameter for binomial family taken to be 1)
+
+    Null deviance: 213.46  on 153  degrees of freedom
+Residual deviance: 128.40  on 147  degrees of freedom
+AIC: 142.4
+
+Number of Fisher Scoring iterations: 5</code></pre>
+</div>
+</div>
+</section>
+<section id="plots-of-the-residuals-for-each-model" class="level4">
+<h4 class="anchored" data-anchor-id="plots-of-the-residuals-for-each-model">Plots of the Residuals for each Model</h4>
+<pre class="{r{}}"><code>par(mfrow = c(2, 2))
+plot(forward_model$residuals, main = "Forward Residuals", ylab = "Residuals")
+plot(backward_model$residuals, main = "Backward Residuals", ylab = "Residuals")
+plot(both_model$residuals, main = "Both-Direction Residuals", ylab = "Residuals")</code></pre>
+<p>Comparing the logistic regression with all 20 core proteins and our simpler model, we find that our model has a residual deviance of 130.74 when the full model only has a residual deviance of 119.37. Similarly, the AIC for the reduced model is 144.74, when the full model obtains an AIC of 161.37. Since the model is able to produce similar AIC and deviances and is a simpler model, we suggest that our pannel of 6 proteins is superior to the 20 proteins we found in task 3.</p>
+<div class="cell" data-hash="report_cache/html/unnamed-chunk-12_3cf5571f831a5aefa8cbcef7f248a480">
+<div class="cell-output cell-output-stdout">
+<pre><code>Analysis of Deviance Table
+
+Model 1: class ~ DERM + IgD + TSP4 + MRC2 + FSTL1 + `M2-PK` + PTN + `eIF-4H` + 
+    C1QR1 + MAPK14 + `14-3-3 protein theta` + RELT + ALCAM + 
+    RET + `CK-MB` + CSK + Calcineurin + `Cadherin-5` + `bFGF-R` + 
+    MIA
+Model 2: class ~ DERM + IgD + PTN + RELT + CSK + `14-3-3 protein theta`
+  Resid. Df Resid. Dev  Df Deviance
+1       133     119.37             
+2       147     130.74 -14  -11.373</code></pre>
+</div>
+</div>
+</section>
 </section>
 </section>
 

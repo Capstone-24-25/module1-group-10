@@ -16,11 +16,10 @@ execute:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-# knitr::opts_knit$set(root.dir = '~/Downloads/module1-group-10/data')
-# setwd("~/Downloads/module1-group-10/data")
 knitr::opts_knit$set(root.dir = '../data')
 setwd("../data")
 biomarker_raw<-read.csv("biomarker-raw.csv")
+load('biomarker-clean.RData')
 ```
 
 ```{r, include = F, echo=FALSE, message=F, warning = F}
@@ -35,7 +34,7 @@ library(yardstick)
 
 ## Abstract
 
-Write a brief one-paragraph abstract that describes the contents of your write-up.
+Our analysis of the ASD biomarker data set expands on the Hewitson et al.(2021) paper by evaluating the impact of log and outlier transformations on the data, exploring how variations in the original methodology affect the resulting core protein panel, and attempting to improve the classification model proposed in the research article. In the context of this dataset, this involves finding proteins that are predictors, or biomarkers, of Autism Spectrum Disorder. The goal of the analysis to explore various classification methods and modifications that improve their efficacy. In reference to the preproccesing of the biomarker dataset, we use graphics and statistical testing to show how log transformations of the protein levels make the data more normal and quantify the difference between the occurrence of outliers in TD vs. ASD subjects. Moving onto the methodology, we find that splitting the dataset into training and testing, using a larger panel size, and utilizing a fuzzy (rather than a hard) intersection does not necessarily improve the accuracy of the model. Finally, we use a stepwise regression approach to improve the classification methodology in the previous task by finding a simpler method that maintains the same accuracy. Using both forwards and backwards selection, we find a panel of 6 proteins that produces similar AIC and deviance scores to the full model. This, thereby, improves the simplicity of the classifier without sacrificing its validity.
 
 ## Dataset
 
@@ -66,6 +65,7 @@ flowchart TD
 ```
 
 ## Findings
+
 
 ### Impact of preprocessing and outliers
 
@@ -104,6 +104,20 @@ The tests with p-values smaller than our alpha of 0.05 indicate that we should r
 
 This is why the log transformation is required. Below, we once again generate distribution histograms and qq-plots for each protein. However, this time we use the log transformed data for these proteins from the biomarker_clean dataset.
 
+```{r, echo = FALSE}
+log_protein_sample <- biomarker_clean %>% select("PGRP-S", "PACAP-27", "TRAIL R4", "IGFBP-1", "cIAP-2") %>% pivot_longer(cols = everything(), names_to = "protein", values_to = "level")
+log_protein_sample$level <- as.numeric(log_protein_sample$level)
+log_protein_sample %>% ggplot() + geom_histogram(aes(x = level), bins = 50) + facet_wrap("protein")
+```
+
+As we can see above, compared to the original protein level distributions for these proteins, the distributions look much closer to the normal distribution 
+
+```{r, echo = FALSE}
+log_protein_sample %>% ggplot(aes(sample = level)) + stat_qq() + stat_qq_line(color = "red") + facet_wrap("protein")
+```
+
+The qq-plots also look much more representative of normal distributions after the log transformation. 
+
 ##### Question 2: Impact of outliers
 
 ```{r, cols.print=5}
@@ -127,21 +141,47 @@ knitr::kable(
 
 As we can see by the data frame, of the 76 subjects with ASD, 75 of them had at least one protein above the threshold. Similarly, the TD group had 77 out of the 78 subjects to have at least one protein above the threshold. In these subjects, there are a total of 1007 proteins that are above the threshold in the ASD group and 1372 total proteins that are above the threshold in the TD group. This means that a ASD subject has on average 13.25 proteins that were trimmed off, when TD subjects had on average around 17.59 proteins that were outliers. Thus, outliers are more frequent in subjects in the TD group than the ASD group.
 
-### Methodlogical variations
+### Methodological variations
+We looked at the following three modifications to the methodology and evaluated how each impacted the results. 
 
-```{r, echo = FALSE}
+##### Modification 1: 
+Repeat the analysis but carry out the entire selection procedure on a training partition (set aside some testing data at the very beginning and don't use it until you are evaluating accuracy at the very end)
+
+We used a proportion of 0.8 to divide our dataset into training and testing sets with 80% of the units being assigned to the training set.
+ 
+How are the results affected by this modification: By setting aside testing data at the start, we ensure that the evaluation is more accurate and unbiased, as the model and feature selection are based solely on the training data. This also ensures that the accuracy isn't falsely inflated as the data that the model is tested on is not the same as the data it was trained on. 
+
+##### Modification 2: 
+Choose a larger number (more than ten) of top predictive proteins using each selection method
+
+For both the t-test and random forest selection methods, we used the top 20 proteins based on their significance or importance scores.
+
+How are the results affected by this modification: Increasing the number of proteins used as features can allow the model to capture more variance in the data, which may improve the predictive accuracy.
+
+##### Modification 3: 
+Use a fuzzy intersection instead of a hard intersection to combine the sets of top predictive proteins across selection methods
+
+We determined the intersection by finding the top 20 proteins with the greatest predictive rank in the union between the panels found through t-tests and random forest. 
+
+How are the results affected by this modification: This increases flexibility by allowing proteins that are significant in only one method but rank highly to contribute to the model.
+
+##### Evaluating these modifications
+
+```{r, echo = F, output = F}
+# Splitting dataset into training and testing
 set.seed(101422)
 load('../data/biomarker-clean.RData')
-
 biomarker_split <- biomarker_clean %>%
   initial_split(prop = 0.8)
 biomarker_train <- training(biomarker_split)
 biomarker_test <- testing(biomarker_split)
+```
 
+```{r, echo = F, output = F}
+# Found panel of 20 proteins from training data using t-tests
 test_fn <- function(.df){
   t_test(.df, formula = level ~ group, order = c('ASD', 'TD'), alternative = 'two-sided', var.equal = F)
 }
-
 ttests_out <- biomarker_train %>%
   select(-ados) %>%
   pivot_longer(-group, names_to = 'protein', values_to = 'level') %>%
@@ -154,18 +194,34 @@ ttests_out <- biomarker_train %>%
 proteins_s1 <- ttests_out %>%
   slice_min(p.adj, n = 20) %>%
   pull(protein)
+```
 
+The panel of 20 proteins generated from applying the t-test method on the training data is shown below:
+```{r, echo=FALSE}
+proteins_s1
+```
+
+```{r, echo=F, output=F}
+# Found panel of 20 proteins from training data using random forest
 predictors <- biomarker_train %>%
   select(-c(group, ados))
 response <- biomarker_train %>% pull(group) %>% factor()
 
 rf_out <- randomForest(x = predictors, y = response, ntree = 1000, importance = T)
-
 proteins_s2 <- rf_out$importance %>% 
   as_tibble() %>%
   mutate(protein = rownames(rf_out$importance)) %>%
   slice_max(MeanDecreaseGini, n = 20) %>%
   pull(protein)
+```
+
+The panel of 20 proteins generated from applying the random forest method on the training data is shown below:
+```{r, echo=FALSE}
+proteins_s2
+```
+
+```{r, echo=FALSE, output=F}
+# Found fuzzy intersection between the t-test and random forest panels
 protein_union <- union(proteins_s1, proteins_s2)
 ranked_proteins <- tibble(
   protein = protein_union,
@@ -177,6 +233,45 @@ ranked_proteins <- tibble(
   slice_min(total_rank, n = 20) %>%
   pull(protein)
 ```
+
+Using a fuzzy intersection (based on the predictive rank of the proteins) to merge these 2 panels into a group of 20 core proteins, this final panel is shown below:
+```{r, echo=FALSE}
+ranked_proteins
+```
+
+We can now evaluate the accuracy of this modified panel to see if these methodological variances made a difference. This will be done through a logistic regression like the initial panel. However, it will be performed on the test group that we separated out in Modification 1. The metrics for our logisitic regression are shown below:
+
+```{r, warning=FALSE, echo = F}
+biomarker_sstar <- biomarker_test %>%
+  select(group, any_of(ranked_proteins)) %>%
+  mutate(class = (group == 'ASD')) %>%
+  select(-group)
+
+# partition into training and test set
+set.seed(101422)
+biomarker_split2 <- biomarker_sstar %>%
+  initial_split(prop = 0.8)
+
+# fit logistic regression model to training set
+fit <- glm(class ~ ., 
+           data = training(biomarker_split2), 
+           family = 'binomial')
+
+# evaluate errors on test set
+class_metrics <- metric_set(sensitivity, 
+                            specificity, 
+                            accuracy,
+                            roc_auc)
+
+testing(biomarker_split2) %>%
+  add_predictions(fit, type = 'response') %>%
+  mutate(est = as.factor(pred > 0.5), tr_c = as.factor(class)) %>%
+  class_metrics(estimate = est,
+              truth = tr_c, pred,
+              event_level = 'second')
+```
+
+As we can see the accuracy is low. This is lower than the accuracy generated by the in-class analysis which was 0.7532. This may be due to the fact that we are using a separate test set and not classifying the same data that was used to train the model. It may also be caused by the fuzzy intersection or larger panel, which may be allowing unnecessary predictor proteins to decrease the accuracy of the model. 
 
 ### Improved classifier
 
@@ -222,20 +317,15 @@ summary(both_model)
 
 #### Plots of the Residuals for each Model
 
-``` {r{}}
-par(mfrow = c(2, 2))
-plot(forward_model$residuals, main = "Forward Residuals", ylab = "Residuals")
-plot(backward_model$residuals, main = "Backward Residuals", ylab = "Residuals")
-plot(both_model$residuals, main = "Both-Direction Residuals", ylab = "Residuals")
-```
+`{r{}} par(mfrow = c(2, 2)) plot(forward_model$residuals, main = "Forward Residuals", ylab = "Residuals") plot(backward_model$residuals, main = "Backward Residuals", ylab = "Residuals") plot(both_model$residuals, main = "Both-Direction Residuals", ylab = "Residuals")`
 
-Comparing the logistic regression with all 20 core proteins and our simpler model, we find that our model has a residual deviance of 130.74 when the full model only has a residual deviance of 119.37. Similarly, the AIC for the reduced model is 144.74, when the full model obtains an AIC of 161.37. Since the model is able to produce similar AIC and deviances and is a simpler model, we suggest that our pannel of 6 proteins is superior to the 20 proteins we found in task 3.
+Comparing the logistic regression with all 20 core proteins and our simpler model, we find that our model has a residual deviance of 130.74 when the full model only has a residual deviance of 119.37. Similarly, the AIC for the reduced model is 144.74, when the full model obtains an AIC of 161.37. Since the model is able to produce similar AIC and deviances and is a simpler model, we suggest that our panel of 6 proteins is superior to the 20 proteins we found in task 3.
 
 ```{r}
 # Comparing to the list of 20 proteins to the reduced 6:
 
 full_model <- glm(class ~ ., data = biomarker_sstar, family = binomial)
-reduced_model <- glm(class ~ DERM + IgD + PTN + RELT + CSK + `14-3-3 protein theta`, data = biomarker_sstar, family = binomial)
+reduced_model <- glm(class ~ DERM + IgD + PTN + RELT + CSK, data = biomarker_sstar, family = binomial)
 
 # summary(full_model)
 # summary(reduced_model)

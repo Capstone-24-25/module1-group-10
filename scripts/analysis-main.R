@@ -33,14 +33,18 @@ protein_sample2 %>% group_by(protein) %>% summarise("pval" =
 
 ### Import data from biomarker_clean to represent log transformed data 
 ### for the sampled proteins
-log_protein_sample <- biomarker_clean %>% select("PGRP-S", "PACAP-27", "TRAIL R4", "IGFBP-1", "cIAP-2") %>% pivot_longer(cols = everything(), names_to = "protein", values_to = "level")
+log_protein_sample <- biomarker_clean %>% select("PGRP-S", "PACAP-27", 
+                                  "TRAIL R4", "IGFBP-1", "cIAP-2") %>% 
+  pivot_longer(cols = everything(), names_to = "protein", values_to = "level")
 log_protein_sample$level <- as.numeric(log_protein_sample$level)
 
 ### Histograms of Log Transformed Data
-log_protein_sample %>% ggplot() + geom_histogram(aes(x = level), bins = 50) + facet_wrap("protein")
+log_protein_sample %>% ggplot() + geom_histogram(aes(x = level), bins = 50) + 
+  facet_wrap("protein")
 
 ### QQplots of Log Transformed Data
-log_protein_sample %>% ggplot(aes(sample = level)) + stat_qq() + stat_qq_line(color = "red") + facet_wrap("protein")
+log_protein_sample %>% ggplot(aes(sample = level)) + stat_qq() + 
+  stat_qq_line(color = "red") + facet_wrap("protein")
 
 
 ##------- Question 2 -----------------------------------------------------------

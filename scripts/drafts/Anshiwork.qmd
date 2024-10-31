@@ -74,8 +74,6 @@ library(yardstick)
 
 # Question 3: Experiment with the following modifications:
 
--repeat the analysis but carry out the entire selection procedure on a training partition -- in other words, set aside some testing data at the very beginning and don't use it until you are evaluating accuracy at the very end.
-
 ```{r}
 trim <- function(x, .at){
   x[abs(x) > .at] <- sign(x[abs(x) > .at])*.at
@@ -107,6 +105,34 @@ How are the results affected by this modification: By setting aside testing data
 For both the t-test and random forest selection methods, I used the top 20 proteins based on their significance or importance scores.
 
 ```{r}
+test_fn <- function(.df){
+  t_test(.df, 
+         formula = level ~ group,
+         order = c('ASD', 'TD'),
+         alternative = 'two-sided',
+         var.equal = F)
+}
+
+ttests_out <- biomarker_clean %>%
+  # drop ADOS score
+  select(-ados) %>%
+  # arrange in long format
+  pivot_longer(-group, 
+               names_to = 'protein', 
+               values_to = 'level') %>%
+  # nest by protein
+  nest(data = c(level, group)) %>% 
+  # compute t tests
+  mutate(ttest = map(data, test_fn)) %>%
+  unnest(ttest) %>%
+  # sort by p-value
+  arrange(p_value) %>%
+  # multiple testing correction
+  mutate(m = n(),
+         hm = log(m) + 1/(2*m) - digamma(1),
+         rank = row_number(),
+         p.adj = m*hm*p_value/rank)
+
 proteins_s1 <- ttests_out %>%
   slice_min(p.adj, n = 20) %>%
   pull(protein)
@@ -136,8 +162,562 @@ ranked_proteins <- tibble(
 ) %>%
   mutate(total_rank = rowMeans(across(starts_with("rank")), na.rm = TRUE)) %>%
   arrange(total_rank) %>%
+  slice_min(total_rank, n = 20) %>% pull(protein)
+```
+
+```{r}
+ranked_proteins
+```
+
+Running logistic regression to evaluate accuracy of size 20 fuzzy intersection panel
+```{r}
+biomarker_sstar <- biomarker_clean %>%
+  select(group, any_of(ranked_proteins)) %>%
+  mutate(class = (group == 'ASD')) %>%
+  select(-group)
+
+# partition into training and test set
+set.seed(101422)
+biomarker_split2 <- biomarker_sstar %>%
+  initial_split(prop = 0.8)
+
+# fit logistic regression model to training set
+fit <- glm(class ~ ., 
+           data = training(biomarker_split2), 
+           family = 'binomial')
+
+# evaluate errors on test set
+class_metrics <- metric_set(sensitivity, 
+                            specificity, 
+                            accuracy,
+                            roc_auc)
+
+testing(biomarker_split2) %>%
+  add_predictions(fit, type = 'response') %>%
+  mutate(est = as.factor(pred > 0.5), tr_c = as.factor(class)) %>%
+  class_metrics(estimate = est,
+              truth = tr_c, pred,
+              event_level = 'second')
+
+```
+
+How are the results affected by this modification: This increases flexibility by allowing proteins that are significant in only one method but rank highly to contribute to the model.
+
+
+
+
+
+
+
+
+
+
+
+
+```{r, echo = F, output = F}
+# Found panel of 20 proteins from training data using t-tests
+test_fn <- function(.df){
+  t_test(.df, formula = level ~ group, order = c('ASD', 'TD'), alternative = 'two-sided', var.equal = F)
+}
+
+ttests_out <- biomarker_train %>%
+  select(-ados) %>%
+  pivot_longer(-group, names_to = 'protein', values_to = 'level') %>%
+  nest(data = c(level, group)) %>% 
+  mutate(ttest = map(data, test_fn)) %>%
+  unnest(ttest) %>%
+  arrange(p_value) %>%
+  mutate(m = n(), hm = log(m) + 1/(2*m) - digamma(1), rank = row_number(), p.adj = m*hm*p_value/rank)
+
+proteins_s1 <- ttests_out %>%
+  slice_min(p.adj, n = 20) %>%
+  pull(protein)
+```
+
+The panel of 20 proteins generated from applying the t-test method on the training data is shown below:
+```{r, echo=FALSE}
+proteins_s1
+```
+
+```{r, echo=F, output=F}
+# Found panel of 20 proteins from training data using random forest
+predictors <- biomarker_train %>%
+  select(-c(group, ados))
+response <- biomarker_train %>% pull(group) %>% factor()
+
+rf_out <- randomForest(x = predictors, y = response, ntree = 1000, importance = T)
+
+proteins_s2 <- rf_out$importance %>% 
+  as_tibble() %>%
+  mutate(protein = rownames(rf_out$importance)) %>%
+  slice_max(MeanDecreaseGini, n = 20) %>%
+  pull(protein)
+```
+
+The panel of 20 proteins generated from applying the random forest method on the training data is shown below:
+```{r, echo=FALSE}
+proteins_s2
+```
+
+```{r, echo=FALSE, output=F}
+# Found fuzzy intersection between the t-test and random forest panels
+protein_union <- union(proteins_s1, proteins_s2)
+ranked_proteins <- tibble(
+  protein = protein_union,
+  rank_s1 = match(protein_union, proteins_s1, nomatch = 21),
+  rank_s2 = match(protein_union, proteins_s2, nomatch = 21)
+) %>%
+  mutate(total_rank = rowMeans(across(starts_with("rank")), na.rm = TRUE)) %>%
+  arrange(total_rank) %>%
   slice_min(total_rank, n = 20) %>%
   pull(protein)
 ```
 
+Using a fuzzy intersection (based on the predictive rank of the proteins) to merge these 2 panels into a group of 20 core proteins, this final panel is shown below:
+```{r, echo=FALSE}
+ranked_proteins
+```
+
+We can now evaluate the accuracy of this modified panel to see if these methodological variances made a difference. This will be done through a logistic regression like the initial panel. However, it will be performed on the test group that we separated out in Modification 1. The metrics for our logisitic regression are shown below:
+
+```{r, warning=FALSE, echo = F}
+biomarker_sstar <- biomarker_test %>%
+  select(group, any_of(ranked_proteins)) %>%
+  mutate(class = (group == 'ASD')) %>%
+  select(-group)
+
+# partition into training and test set
+set.seed(101422)
+biomarker_split2 <- biomarker_sstar %>%
+  initial_split(prop = 0.8)
+
+# fit logistic regression model to training set
+fit <- glm(class ~ ., 
+           data = training(biomarker_split2), 
+           family = 'binomial')
+
+# evaluate errors on test set
+class_metrics <- metric_set(sensitivity, 
+                            specificity, 
+                            accuracy,
+                            roc_auc)
+
+testing(biomarker_split2) %>%
+  add_predictions(fit, type = 'response') %>%
+  mutate(est = as.factor(pred > 0.5), tr_c = as.factor(class)) %>%
+  class_metrics(estimate = est,
+              truth = tr_c, pred,
+              event_level = 'second')
+```
+
+As we can see the accuracy is 0.714. This is lower than the accuracy generated by the in-class analysis which was 0.7532. This may be due to the fact that we are using a separate test set and not classifying the same data that was used to train the model. It may also be caused by the fuzzy intersection or larger panel, which may be allowing unnecessary predictor proteins to decrease the accuracy of the model. 
+
+### Improved classifier
+
+```{r, echo = FALSE, results = 'hide'}
+
+
+biomarker_sstar <- biomarker_clean %>%
+  select(group, any_of(ranked_proteins)) %>%
+  mutate(class = (group == 'ASD')) %>%
+  select(-group)
+
+# Define the full model with all predictors
+initial_model <- glm(class ~ 1, data = biomarker_sstar, family = binomial)
+full_model <- glm(class ~ ., data = biomarker_sstar, family = binomial)
+
+forward_model <- stats::step(initial_model, direction='forward', scope = list(lower = initial_model, upper = full_model))
+
+backward_model <- glm(class ~ ., data = biomarker_sstar, family = binomial) %>% stats::step(direction = "backward")
+
+#Stepwise regression
+both_model <- glm(class ~ ., data = biomarker_sstar, family = binomial)%>% stats::step(direction = "both", scope = list(lower = initial_model, upper = full_model))
+```
+
+To improve a classifier, a model can be either simplified while still achieving the a similar accuracy or can be made more complicated to achieve a better accuracy. This is because the Occam's razor principle suggests that when choosing between models, the simpler model is better assuming that it achieves the same accuracy. Thus we decided to simplify our model from task 3. Our approach to simplifying the model was through stepwise regression. Stepwise regression is adding or removing parameters for a logistic regression based on a criterion until adding any of the remaining parameter does not significantly improve our glm or removing any parameter worsens our model. The criterion we used was AIC which is calculated using the number of independent variables and the maximum likelihood estimate of the model to determine if the increase in variables produces a better model. We deployed forwards selection, which only adds variables, backwards selection, which only removes variables, and both, which can add and remove variables. We identified our "best" proteins as the proteins that were in 2 or 3 of the stepwise regressions. The 6 proteins that achieved this are, DERM, IgD, PTN, RELT, CSK and 14-3-3 protein theta.
+
+#### The Summary of the Forwards Model
+
+```{r}
+summary(forward_model)
+```
+
+#### The Summary fo the Backwards Model
+
+```{r}
+summary(backward_model)
+```
+
+#### The Summary of the Forwards and Backwards Model
+
+```{r}
+summary(both_model)
+```
+
+#### Plots of the Residuals for each Model
+
+`{r{}} par(mfrow = c(2, 2)) plot(forward_model$residuals, main = "Forward Residuals", ylab = "Residuals") plot(backward_model$residuals, main = "Backward Residuals", ylab = "Residuals") plot(both_model$residuals, main = "Both-Direction Residuals", ylab = "Residuals")`
+
+Comparing the logistic regression with all 20 core proteins and our simpler model, we find that our model has a residual deviance of 130.74 when the full model only has a residual deviance of 119.37. Similarly, the AIC for the reduced model is 144.74, when the full model obtains an AIC of 161.37. Since the model is able to produce similar AIC and deviances and is a simpler model, we suggest that our panel of 6 proteins is superior to the 20 proteins we found in task 3.
+
+```{r}
+# Comparing to the list of 20 proteins to the reduced 6:
+
+full_model <- glm(class ~ ., data = biomarker_sstar, family = binomial)
+reduced_model <- glm(class ~ DERM + IgD + PTN + RELT + CSK + `14-3-3 protein theta`, data = biomarker_sstar, family = binomial)
+
+# summary(full_model)
+# summary(reduced_model)
+
+anova(full_model, reduced_model)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = '../data')
+setwd("../data")
+biomarker_raw<-read.csv("biomarker-raw.csv")
+load('biomarker-clean.RData')
+```
+
+```{r, include = F, echo=FALSE, message=F, warning = F}
+library(ggplot2)
+library(tidyverse)
+library(infer)
+library(randomForest)
+library(tidymodels)
+library(modelr)
+library(yardstick)
+```
+
+## Abstract
+
+Our analysis of the ASD biomarker data set expands on the Hewitson et al.(2021) paper by evaluating the impact of log and outlier transformations on the data, exploring how variations in the original methodology affect the resulting core protein panel, and attempting to improve the classification model proposed in the research article. In the context of this dataset, this involves finding proteins that are predictors, or biomarkers, of Autism Spectrum Disorder. The goal of the analysis to explore various classification methods and modifications that improve their efficacy. In reference to the preproccesing of the biomarker dataset, we use graphics and statistical testing to show how log transformations of the protein levels make the data more normal and quantify the difference between the occurrence of outliers in TD vs. ASD subjects. Moving onto the methodology, we find that splitting ...
+Finally, we use a stepwise regression approach to improve the classification methodology in the previous task by finding a simpler method that maintains the same accuracy. Using both forwards and backwards selection, we find a panel of 6 proteins that produces similar AIC and deviance scores to the full model. This, thereby, improves the simplicity of the classifier without sacrificing its validity.
+
+## Dataset
+
+The data was gathered from Hewitson et al. (2021). In total the data set consists of 154 male participants of whom 76 have ASD, mean age of 5.6 years, and the other 78 are typically developing boys, mean age of 5.7 years, with ages ranging from 18 months to 8 years of age. In terms of demographics, both ASD and TD groups had majority White/Caucasian with 45.2% and 51.9% respectively while Asian or Pacific Islander made up the minority with 2.6% and 3.9%. Moreover, a majority of boys reported no comorbidities, 52.8% and 75.3%, however seasonal allergies followed with 41.7% of ASD boys and 22.4% of TD boys. For medications attribute "none" was also the majority having 92% of ASD boys and 97.4% of TD boys falling into this attribute, other medications were too few in representation. On top of this, ASD boys specifically went through ADOS testing which measures ASD symptom severity between 6 and 23, 23 being the most severe, and TD boys went through ABAS-II testing to ensure there were no developmental concerns.
+
+With our overarching goal to identify a panel of proteins that correlated as a blood biomarker for detecting ASF early, the data required a way to gather serum levels of proteins, thus each participant underwent blood draws utilizing serum separation tubes. A total of 1,317 proteins were identified and 1,125 analyzed after 192 proteins failed quality control. For data preprocessing, protein data was log-transformed, center and scaled, and trimmed. This way the data would be standardized and normalized, trimming allowed us to take note of outliers, values less than -3 or greater than 3 were considered outliers. Our data is now ready for testing to find the top predictive proteins.
+
+## Summary of published analysis
+
+After collecting the data, the data was then cleaned by removing proteins that did not pass quality control, normalized through a log10 transform and then a z-transformation, and then values greater than 3 and less than -3 were clipped to 3 and -3. The clipping was to prevent outliers from influencing the analysis.
+
+After the data was cleaned, the paper then used 3 different methods to evaluate the importance of each protein to ASD. The three methods are the correlation coefficients, T-tests, and random forests. The correlation coefficients were found by calculating the correlation between each protein and the ADOS scores. The top 10 proteins with the largest absolute value correlation coefficient were identified. The T test method was used to determine if the mean level of each protein from group of ASD subjects was significantly different from the mean level of the TD subjects. The top 10 proteins from this method were identified through the tests that had the highest significance. Finding the most significant proteins from random forests relies on boosting decision trees to create a large amount of trees. Keeping track of which proteins were used most often can signify how important that protein is to predicting ASD. Thus the 10 proteins with the highest averaged importance index were identified.
+
+After finding the top 10 proteins for each of the methods, any protein that was in the top 10 for all 3 methods was classified as a 'core' protein. There were 5 proteins that the paper found measured in the top 10 for all 3 methods and 13 others that were in either 1 or 2 methods top 10 list. In order to determine if any of the 13 other proteins were important they created logistic regressions with the 5 'core' proteins and added on of the 13 other proteins at a time. The metric the paper used to determined if the protein was important to ASD was if the logistic regression ROC increased by a significant amount. From this, they identified 4 more proteins to be significant in determining ASD. The 9 proteins that the paper suggests are the optimal proteins to identify ASD are the 5 'core' proteins, mitogen-activated protein kinase 14 (MAPK14), immunoglobulin D (IgD), dermatopontin (DERM), ephrin type-B receptor 2 (EPHB2) and soluble urokinase-type plasminogen activator receptor (suPAR) along with the 4 additional proteins, receptor tyrosine kinase-like orphan receptor 1 \[ROR1\], platelet receptor Gl24 \[GI24\], eukaryotic translation initiation factor 4H \[elF-4H\], and arylsulfatase B \[ARSB\]. The logistic regression with these proteins resulted in an AUC score of 0.860, a sensitivity of 0.833 and a specificity of 0.846.
+
+```{mermaid}
+flowchart TD
+    A[Collect Data] --> |Clean the Data|B{Apply Variable Selection Methods}
+    B --> |One| C[Correlation Coefficients]
+    B-->|Two| D[T Test]
+    B --> |Three| F[Random Forest]
+    C --> G[Take Top 10 Most Important Protiens]
+    D --> G
+    F --> G
+    G --> I[See if Proteins that are in a Top 10 <br> List Improve the ROC curve]
+    G --> H[Proteins That are in All <br> Three Lists are Important]
+    I --> |If They Do|J[Classify Them as Important]
+```
+
+## Findings
+
+
+### Impact of preprocessing and outliers
+
+##### Question 1: Impact of log transformation
+
+In order to investigate the role of the log transformation in the preprocessing of our biomarker data, we will first look at the distribution of raw values for a sample of proteins.
+
+First, we randomly sampled 5 proteins from the raw dataset. The proteins sampled were PGRP-S, PACAP-27, TRAIL R4, IGFBP-1, cIAP-2.
+
+The distributions of the protein levels for these 5 proteins are shown below.
+
+```{r, echo = F}
+set.seed(1045)
+protein_numbers <- sample(3:ncol(biomarker_raw), size = 5, replace=F)
+protein_sample <- biomarker_raw[,protein_numbers]
+colnames(protein_sample) <- protein_sample[1,]
+protein_sample <- protein_sample[-1,]
+protein_sample2 <- protein_sample %>% pivot_longer(cols = everything(), names_to = "protein", values_to = "level")
+protein_sample2$level <- as.numeric(protein_sample2$level)
+protein_sample2 %>% ggplot() + geom_histogram(aes(x = level), bins = 50) + facet_wrap("protein") + xlim(0,8000)
+```
+
+As we can see, the distributions do not seem normal as many of them are skewed to the left and do not seem centered around a mean. We can use qqplots for each of these proteins to support this conclusion. These are shown below:
+
+```{r, echo = F}
+protein_sample2 %>% ggplot(aes(sample = level)) + stat_qq() + stat_qq_line(color = "red") + facet_wrap("protein") + ylim(0, 10000)
+```
+
+As shown above, a lot of the protein level distributions for our sample of 5 proteins do not follow the qqline shown in red for each above qq-plot. To determine if they significantly stray away from a normal distribution, we can use Shapiro-Wilk Tests.
+
+```{r, echo = F}
+protein_sample2 %>% group_by(protein) %>% summarise("pval" = shapiro.test(as.numeric(level))$p.value) %>% mutate("normal" = ifelse(pval < 0.05, FALSE, TRUE))
+```
+
+The tests with p-values smaller than our alpha of 0.05 indicate that we should reject the null hypothesis that the distributions of the levels for these proteins is normal. As shown above, all proteins failed the normality test.
+
+This is why the log transformation is required. Below, we once again generate distribution histograms and qq-plots for each protein. However, this time we use the log transformed data for these proteins from the biomarker_clean dataset.
+
+```{r, echo = FALSE}
+biomarker_clean <- 
+log_protein_sample <- biomarker_clean %>% select("PGRP-S", "PACAP-27", "TRAIL R4", "IGFBP-1", "cIAP-2") %>% pivot_longer(cols = everything(), names_to = "protein", values_to = "level")
+log_protein_sample$level <- as.numeric(log_protein_sample$level)
+log_protein_sample %>% ggplot() + geom_histogram(aes(x = level), bins = 50) + facet_wrap("protein")
+```
+
+As we can see above, compared to the original protein level distributions for these proteins, the distributions look much closer to the normal distribution 
+
+```{r, echo = FALSE}
+log_protein_sample %>% ggplot(aes(sample = level)) + stat_qq() + stat_qq_line(color = "red") + facet_wrap("protein")
+```
+
+The qq-plots also look much more representative of normal distributions after the log transformation. 
+
+##### Question 2: Impact of outliers
+
+```{r, cols.print=5}
+load('../data/biomarker_w_outliers.RData')
+
+# Grouping the dataset in to ASD and TD and comparing the number of outliers
+outlier_info <- biomarker_w_outliers %>%
+  group_by(group) %>%
+  summarize(TotalOutliers = sum(outliers),
+            OutliersMean = mean(outliers),
+            OutilersSD = sd(outliers),
+            OutliersMax = max(outliers),
+            OutlierNumbers = sum(outliers > 0),
+            NonOutlierNumbers = sum(outliers == 0))
+
+
+knitr::kable(
+  outlier_info
+)
+```
+
+As we can see by the data frame, of the 76 subjects with ASD, 75 of them had at least one protein above the threshold. Similarly, the TD group had 77 out of the 78 subjects to have at least one protein above the threshold. In these subjects, there are a total of 1007 proteins that are above the threshold in the ASD group and 1372 total proteins that are above the threshold in the TD group. This means that a ASD subject has on average 13.25 proteins that were trimmed off, when TD subjects had on average around 17.59 proteins that were outliers. Thus, outliers are more frequent in subjects in the TD group than the ASD group.
+
+### Methodological variations
+We looked at the following three modifications to the methodology and evaluated how each impacted the results. 
+
+##### Modification 1: 
+Repeat the analysis but carry out the entire selection procedure on a training partition (set aside some testing data at the very beginning and don't use it until you are evaluating accuracy at the very end)
+
+We used a proportion of 0.8 to divide our dataset into training and testing sets with 80% of the units being assigned to the training set.
+ 
+How are the results affected by this modification: By setting aside testing data at the start, we ensure that the evaluation is more accurate and unbiased, as the model and feature selection are based solely on the training data. This also ensures that the accuracy isn't falsely inflated as the data that the model is tested on is not the same as the data it was trained on. 
+
+##### Modification 2: 
+Choose a larger number (more than ten) of top predictive proteins using each selection method
+
+For both the t-test and random forest selection methods, we used the top 20 proteins based on their significance or importance scores.
+
+How are the results affected by this modification: Increasing the number of proteins used as features can allow the model to capture more variance in the data, which may improve the predictive accuracy.
+
+##### Modification 3: 
+Use a fuzzy intersection instead of a hard intersection to combine the sets of top predictive proteins across selection methods
+
+We determined the intersection by finding the top 20 proteins with the greatest predictive rank in the union between the panels found through t-tests and random forest. 
+
 How are the results affected by this modification: This increases flexibility by allowing proteins that are significant in only one method but rank highly to contribute to the model.
+
+##### Evaluating these modifications
+```{r, echo = F, output = F}
+# Splitting dataset into training and testing
+set.seed(101422)
+biomarker_split <- initial_split(biomarker_clean, prop = 0.8)
+biomarker_train <- training(biomarker_split)
+biomarker_test <- testing(biomarker_split)
+```
+
+```{r, echo = F, output = F}
+# Found panel of 20 proteins from training data using t-tests
+test_fn <- function(.df){
+  t_test(.df, formula = level ~ group, order = c('ASD', 'TD'), alternative = 'two-sided', var.equal = F)
+}
+
+ttests_out <- biomarker_train %>%
+  select(-ados) %>%
+  pivot_longer(-group, names_to = 'protein', values_to = 'level') %>%
+  nest(data = c(level, group)) %>% 
+  mutate(ttest = map(data, test_fn)) %>%
+  unnest(ttest) %>%
+  arrange(p_value) %>%
+  mutate(m = n(), hm = log(m) + 1/(2*m) - digamma(1), rank = row_number(), p.adj = m*hm*p_value/rank)
+
+proteins_s1 <- ttests_out %>%
+  slice_min(p.adj, n = 20) %>%
+  pull(protein)
+```
+
+The panel of 20 proteins generated from applying the t-test method on the training data is shown below:
+```{r, echo=FALSE}
+proteins_s1
+```
+
+```{r, echo=F, output=F}
+# Found panel of 20 proteins from training data using random forest
+predictors <- biomarker_train %>%
+  select(-c(group, ados))
+response <- biomarker_train %>% pull(group) %>% factor()
+
+rf_out <- randomForest(x = predictors, y = response, ntree = 1000, importance = T)
+
+proteins_s2 <- rf_out$importance %>% 
+  as_tibble() %>%
+  mutate(protein = rownames(rf_out$importance)) %>%
+  slice_max(MeanDecreaseGini, n = 20) %>%
+  pull(protein)
+```
+
+The panel of 20 proteins generated from applying the random forest method on the training data is shown below:
+```{r, echo=FALSE}
+proteins_s2
+```
+
+```{r, echo=FALSE, output=F}
+# Found fuzzy intersection between the t-test and random forest panels
+protein_union <- union(proteins_s1, proteins_s2)
+ranked_proteins <- tibble(
+  protein = protein_union,
+  rank_s1 = match(protein_union, proteins_s1, nomatch = 21),
+  rank_s2 = match(protein_union, proteins_s2, nomatch = 21)
+) %>%
+  mutate(total_rank = rowMeans(across(starts_with("rank")), na.rm = TRUE)) %>%
+  arrange(total_rank) %>%
+  slice_min(total_rank, n = 20) %>%
+  pull(protein)
+```
+
+Using a fuzzy intersection (based on the predictive rank of the proteins) to merge these 2 panels into a group of 20 core proteins, this final panel is shown below:
+```{r, echo=FALSE}
+ranked_proteins
+```
+
+We can now evaluate the accuracy of this modified panel to see if these methodological variances made a difference. This will be done through a logistic regression like the initial panel. However, it will be performed on the test group that we separated out in Modification 1. The metrics for our logisitic regression are shown below:
+
+```{r, warning=FALSE, echo = F}
+biomarker_sstar <- biomarker_test %>%
+  select(group, any_of(ranked_proteins)) %>%
+  mutate(class = (group == 'ASD')) %>%
+  select(-group)
+
+# partition into training and test set
+set.seed(101422)
+biomarker_split2 <- biomarker_sstar %>%
+  initial_split(prop = 0.8)
+
+# fit logistic regression model to training set
+fit <- glm(class ~ ., 
+           data = training(biomarker_split2), 
+           family = 'binomial')
+
+# evaluate errors on test set
+class_metrics <- metric_set(sensitivity, 
+                            specificity, 
+                            accuracy,
+                            roc_auc)
+
+testing(biomarker_split2) %>%
+  add_predictions(fit, type = 'response') %>%
+  mutate(est = as.factor(pred > 0.5), tr_c = as.factor(class)) %>%
+  class_metrics(estimate = est,
+              truth = tr_c, pred,
+              event_level = 'second')
+```
+
+As we can see the accuracy is 0.714. This is lower than the accuracy generated by the in-class analysis which was 0.7532. This may be due to the fact that we are using a separate test set and not classifying the same data that was used to train the model. It may also be caused by the fuzzy intersection or larger panel, which may be allowing unnecessary predictor proteins to decrease the accuracy of the model. 
+
+### Improved classifier
+
+```{r, echo = FALSE, results = 'hide'}
+
+
+biomarker_sstar <- biomarker_clean %>%
+  select(group, any_of(ranked_proteins)) %>%
+  mutate(class = (group == 'ASD')) %>%
+  select(-group)
+
+# Define the full model with all predictors
+initial_model <- glm(class ~ 1, data = biomarker_sstar, family = binomial)
+full_model <- glm(class ~ ., data = biomarker_sstar, family = binomial)
+
+forward_model <- stats::step(initial_model, direction='forward', scope = list(lower = initial_model, upper = full_model))
+
+backward_model <- glm(class ~ ., data = biomarker_sstar, family = binomial) %>% stats::step(direction = "backward")
+
+#Stepwise regression
+both_model <- glm(class ~ ., data = biomarker_sstar, family = binomial)%>% stats::step(direction = "both", scope = list(lower = initial_model, upper = full_model))
+```
+
+To improve a classifier, a model can be either simplified while still achieving the a similar accuracy or can be made more complicated to achieve a better accuracy. This is because the Occam's razor principle suggests that when choosing between models, the simpler model is better assuming that it achieves the same accuracy. Thus we decided to simplify our model from task 3. Our approach to simplifying the model was through stepwise regression. Stepwise regression is adding or removing parameters for a logistic regression based on a criterion until adding any of the remaining parameter does not significantly improve our glm or removing any parameter worsens our model. The criterion we used was AIC which is calculated using the number of independent variables and the maximum likelihood estimate of the model to determine if the increase in variables produces a better model. We deployed forwards selection, which only adds variables, backwards selection, which only removes variables, and both, which can add and remove variables. We identified our "best" proteins as the proteins that were in 2 or 3 of the stepwise regressions. The 6 proteins that achieved this are, DERM, IgD, PTN, RELT, CSK and 14-3-3 protein theta.
+
+#### The Summary of the Forwards Model
+
+```{r}
+summary(forward_model)
+```
+
+#### The Summary fo the Backwards Model
+
+```{r}
+summary(backward_model)
+```
+
+#### The Summary of the Forwards and Backwards Model
+
+```{r}
+summary(both_model)
+```
+
+#### Plots of the Residuals for each Model
+
+`{r{}} par(mfrow = c(2, 2)) plot(forward_model$residuals, main = "Forward Residuals", ylab = "Residuals") plot(backward_model$residuals, main = "Backward Residuals", ylab = "Residuals") plot(both_model$residuals, main = "Both-Direction Residuals", ylab = "Residuals")`
+
+Comparing the logistic regression with all 20 core proteins and our simpler model, we find that our model has a residual deviance of 130.74 when the full model only has a residual deviance of 119.37. Similarly, the AIC for the reduced model is 144.74, when the full model obtains an AIC of 161.37. Since the model is able to produce similar AIC and deviances and is a simpler model, we suggest that our panel of 6 proteins is superior to the 20 proteins we found in task 3.
+
+```{r}
+# Comparing to the list of 20 proteins to the reduced 6:
+
+full_model <- glm(class ~ ., data = biomarker_sstar, family = binomial)
+reduced_model <- glm(class ~ DERM + IgD + PTN + RELT + CSK + `14-3-3 protein theta`, data = biomarker_sstar, family = binomial)
+
+# summary(full_model)
+# summary(reduced_model)
+
+anova(full_model, reduced_model)
+```

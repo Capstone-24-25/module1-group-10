@@ -134,6 +134,7 @@ set.seed(101422)
 biomarker_split <- initial_split(biomarker_data, prop = 0.8)
 biomarker_train <- training(biomarker_split)
 biomarker_test <- testing(biomarker_split)
+# The results are affected by this modification because by setting aside testing data at the start, we ensure that the evaluation is more accurate and unbiased, as the model and feature selection are based solely on the training data.
 
 # choose a larger number (more than ten) of top predictive proteins using each selection method
 # used the top 20 proteins based on their significance or importance scores (for both t-test and random forest)
@@ -151,6 +152,7 @@ proteins_s2 <- rf_out$importance %>%
   mutate(protein = rownames(rf_out$importance)) %>%
   slice_max(MeanDecreaseGini, n = 20) %>%
   pull(protein)
+# The results are affected by this modification because increasing the number of proteins used as features can allow the model to capture more variance in the data, which may improve the predictive accuracy.
 
 # use a fuzzy intersection instead of a hard intersection to combine the sets of top predictive proteins across selection methods
 protein_union <- union(proteins_s1, proteins_s2)
@@ -163,6 +165,7 @@ ranked_proteins <- tibble(
   arrange(total_rank) %>%
   slice_min(total_rank, n = 20) %>%
   pull(protein)
+# The results are affected by this modification because it increases flexibility by allowing proteins that are significant in only one method but rank highly to contribute to the model.
 
 ##------- Question 4 -----------------------------------------------------------
 biomarker_sstar <- biomarker_clean %>%
